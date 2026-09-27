@@ -1,6 +1,6 @@
 import { config } from '../config'
 import { useScrolledPast } from '../hooks/useScrollProgress'
-import { bookingMessage, whatsappUrl } from '@barbearia/shared/lib/whatsapp'
+import { bookingMessage, whatsappUrl } from '@restaurante/shared/lib/whatsapp'
 import { WhatsAppIcon } from './Icons'
 
 /**
@@ -17,7 +17,7 @@ export function WhatsAppFab() {
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      aria-label="Agendar pelo WhatsApp"
+      aria-label="Reservar mesa pelo WhatsApp"
       tabIndex={visible ? 0 : -1}
       aria-hidden={!visible}
       className={`btn btn-brand fixed right-4 bottom-safe z-50 size-14 min-h-14 rounded-full p-0 shadow-lg transition-all duration-300 sm:right-6 ${

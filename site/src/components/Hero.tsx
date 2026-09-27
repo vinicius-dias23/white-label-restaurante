@@ -1,5 +1,5 @@
-import { config } from '../config'
-import { bookingMessage, whatsappUrl } from '@barbearia/shared/lib/whatsapp'
+import { config, hasMenu } from '../config'
+import { bookingMessage, whatsappUrl } from '@restaurante/shared/lib/whatsapp'
 import { ArrowDownIcon, WhatsAppIcon } from './Icons'
 import { Logo } from './Logo'
 import { OpenBadge } from './OpenBadge'
@@ -7,7 +7,7 @@ import { SmartImage } from './SmartImage'
 
 /**
  * Primeira tela: foto em tela cheia, logo, uma linha de texto e o botão
- * do WhatsApp. Usa `100svh` em vez de `100vh` porque no celular a barra
+ * que pede a mesa no WhatsApp. Usa `100svh` em vez de `100vh` porque no celular a barra
  * do navegador cortaria o botão justamente na hora de tocá-lo.
  */
 export function Hero() {
@@ -70,9 +70,9 @@ export function Hero() {
               {hero.ctaLabel}
             </a>
 
-            {config.services.length > 0 && (
-              <a href="#servicos" className="btn btn-ghost w-full sm:w-auto">
-                Ver serviços
+            {hasMenu() && (
+              <a href="#cardapio" className="btn btn-ghost w-full sm:w-auto">
+                Ver cardápio
               </a>
             )}
           </div>
@@ -80,7 +80,7 @@ export function Hero() {
       </div>
 
       <a
-        href={config.services.length ? '#servicos' : '#contato'}
+        href={hasMenu() ? '#cardapio' : '#contato'}
         aria-label="Rolar para o conteúdo"
         className="absolute inset-x-0 bottom-5 mx-auto hidden w-fit text-muted sm:block"
       >

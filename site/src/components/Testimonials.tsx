@@ -20,7 +20,7 @@ export function Testimonials() {
   if (!config.features.testimonials || testimonials.length === 0) return null
 
   return (
-    <Section id="depoimentos" kicker="Quem senta na cadeira" title="O que dizem" bleed>
+    <Section id="depoimentos" kicker="Quem já sentou à mesa" title="O que dizem" bleed>
       <div className="snap-row lg:mx-auto lg:grid lg:max-w-6xl lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-8">
         {testimonials.map((item, index) => (
           <Reveal

@@ -5,15 +5,17 @@ import { Section } from './Section'
 import { SmartImage } from './SmartImage'
 
 /**
- * Equipe. Carrossel por toque no celular, grade no desktop — o mesmo
- * conteúdo, sem esconder nada em telas pequenas.
+ * Equipe: chef, sommelier, quem recebe na porta. Carrossel por toque no
+ * celular, grade no desktop — o mesmo conteúdo, sem esconder nada em telas
+ * pequenas. Não tem botão de reserva por pessoa: a mesa é do restaurante,
+ * não de um colaborador.
  */
 export function Team() {
   const { team } = config
   if (!config.features.team || team.length === 0) return null
 
   return (
-    <Section id="equipe" kicker="Quem cuida de você" title="A equipe" bleed>
+    <Section id="equipe" kicker="Quem cozinha pra você" title="Nossa equipe" bleed>
       <div className="snap-row sm:mx-auto sm:grid sm:max-w-6xl sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-8">
         {team.map((member, index) => (
           <Reveal
