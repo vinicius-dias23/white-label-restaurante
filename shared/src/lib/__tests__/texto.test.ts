@@ -4,8 +4,8 @@ import { TEXTOS, TEXTO_KEYS } from '../../config/textos.js'
 
 describe('renderTexto', () => {
   it('troca a variável pelo valor', () => {
-    expect(renderTexto('Olá! Aqui é a {marca} 💈', { marca: 'Barbearia do Zé' })).toBe(
-      'Olá! Aqui é a Barbearia do Zé 💈',
+    expect(renderTexto('Olá! Aqui é a {marca} 🍝', { marca: 'Cantina do Zé' })).toBe(
+      'Olá! Aqui é a Cantina do Zé 🍝',
     )
   })
 

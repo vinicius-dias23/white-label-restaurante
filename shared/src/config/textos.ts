@@ -4,20 +4,20 @@
  * Toda frase que o bot manda nasce aqui: o padrão, o grupo em que ela aparece
  * na UI de edição, as variáveis que aceita e o limite de tamanho da Meta.
  *
- * A barbearia sobrescreve o que quiser em `whatsapp.textos` do
- * `barbearia.config.json`; o que ela não escrever continua saindo com o padrão
+ * O restaurante sobrescreve o que quiser em `whatsapp.textos` do
+ * `restaurante.config.json`; o que ela não escrever continua saindo com o padrão
  * desta tabela. Nenhum texto visível ao cliente ou ao dono deve ficar escrito
  * direto no código do bot — o teste de completude reprova quem tentar.
  *
  * `{variavel}` é substituída em tempo de envio por `renderTexto`.
  */
 
-export type GrupoTexto = 'cliente' | 'dono' | 'barbeiro' | 'rotulos' | 'templates'
+export type GrupoTexto = 'cliente' | 'dono' | 'recepcao' | 'rotulos' | 'templates'
 
 export const GRUPO_LABELS: Record<GrupoTexto, string> = {
   cliente: 'Cliente',
   dono: 'Dono',
-  barbeiro: 'Barbeiro',
+  recepcao: 'Recepção',
   rotulos: 'Botões e listas',
   templates: 'Templates da Meta',
 }
@@ -59,7 +59,7 @@ export const TEXTOS = {
     variaveis: ['marca'],
     limite: CORPO,
     multilinha: false,
-    padrao: 'Olá! Aqui é a {marca} 💈',
+    padrao: 'Olá! Aqui é a {marca} 🍝',
   }),
 
   'cliente.menu.corpo': meta({
@@ -69,7 +69,10 @@ export const TEXTOS = {
     variaveis: ['saudacao', 'marca'],
     limite: CORPO,
     multilinha: true,
-    padrao: '{saudacao}\nComo posso ajudar?',
+    padrao: [
+      '{saudacao}',
+      'Como posso ajudar?',
+    ].join('\n'),
   }),
 
   'cliente.menu.naoEntendi': meta({
@@ -82,14 +85,27 @@ export const TEXTOS = {
     padrao: 'Não entendi 🙂 Toque numa das opções abaixo:',
   }),
 
-  'cliente.servicos.titulo': meta({
+  'cliente.cardapio.titulo': meta({
     grupo: 'cliente',
-    rotulo: 'Serviços — título',
-    ajuda: 'A lista de serviços e preços é montada logo abaixo, a partir do config.',
+    rotulo: 'Cardápio — título',
+    ajuda: 'Os pratos em destaque, com preço, são montados logo abaixo a partir do config.',
     variaveis: ['marca'],
     limite: CORPO,
     multilinha: false,
-    padrao: '*Serviços da {marca}*',
+    padrao: '*Destaques do cardápio da {marca}* 🍽️',
+  }),
+
+  'cliente.cardapio.link': meta({
+    grupo: 'cliente',
+    rotulo: 'Cardápio — link do completo',
+    ajuda: 'Só aparece quando o config tem "menu.url".',
+    variaveis: ['link'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      '📖 Cardápio completo:',
+      '{link}',
+    ].join('\n'),
   }),
 
   'cliente.horarios.titulo': meta({
@@ -122,7 +138,6 @@ export const TEXTOS = {
   'cliente.horarios.fechado': meta({
     grupo: 'cliente',
     rotulo: 'Horários — fechado, sem próxima abertura',
-    ajuda: 'Só aparece quando a barbearia está fechada a semana inteira no config.',
     variaveis: [],
     limite: CORPO,
     multilinha: false,
@@ -132,21 +147,30 @@ export const TEXTOS = {
   'cliente.endereco.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Endereço',
-    ajuda: 'O WhatsApp mostra o cartão do mapa embaixo desta mensagem.',
     variaveis: ['marca', 'endereco', 'link'],
     limite: TEXTO_LIVRE,
     multilinha: true,
-    padrao: '*{marca}*\n\n📍 {endereco}\n\nTraçar rota:\n{link}',
+    padrao: [
+      '*{marca}*',
+      '',
+      '📍 {endereco}',
+      '',
+      'Traçar rota:',
+      '{link}',
+    ].join('\n'),
   }),
 
   'cliente.pagamento.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Formas de pagamento',
-    ajuda: 'A variável {formas} vem de "whatsapp.paymentMethods" no config.',
     variaveis: ['formas'],
     limite: CORPO,
     multilinha: true,
-    padrao: '*Formas de pagamento*\n\n{formas}',
+    padrao: [
+      '*Formas de pagamento*',
+      '',
+      '{formas}',
+    ].join('\n'),
   }),
 
   'cliente.atendente.corpo': meta({
@@ -169,7 +193,6 @@ export const TEXTOS = {
   'cliente.atendente.pausa': meta({
     grupo: 'cliente',
     rotulo: 'Falar com atendente — trecho do tempo de pausa',
-    ajuda: 'Encaixado em {pausa}. Some quando "whatsapp.handoffMinutes" é 0.',
     variaveis: ['minutos'],
     multilinha: false,
     padrao: ' por {minutos} minutos',
@@ -178,7 +201,6 @@ export const TEXTOS = {
   'cliente.botPausado.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Bot pausado pelo dono',
-    ajuda: 'Resposta de cortesia enquanto o dono está atendendo à mão.',
     variaveis: ['marca'],
     limite: TEXTO_LIVRE,
     multilinha: true,
@@ -186,26 +208,60 @@ export const TEXTOS = {
   }),
 
   // -------------------------------------------------------------------------
-  // Cliente — fluxo de agendamento
+  // Cliente — reserva
   // -------------------------------------------------------------------------
 
-  'cliente.escolherServico.corpo': meta({
+  'cliente.escolherPessoas.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Escolher serviço',
+    rotulo: 'Quantas pessoas',
     variaveis: [],
     limite: CORPO,
-    multilinha: false,
-    padrao: 'O que você quer fazer?',
+    multilinha: true,
+    padrao: [
+      'Vamos reservar sua mesa! 🍽️',
+      'Para quantas pessoas?',
+    ].join('\n'),
   }),
 
-  'cliente.escolherBarbeiro.corpo': meta({
+  'cliente.digitarPessoas.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Escolher barbeiro',
-    ajuda: 'Pulada quando a equipe tem uma pessoa só.',
-    variaveis: ['servico'],
+    rotulo: 'Grupo grande — digitar o número',
+    ajuda: 'Aparece depois do toque em "9 ou mais". É a única tela em que o bot lê o que o cliente digita.',
+    variaveis: ['maximo'],
     limite: CORPO,
     multilinha: true,
-    padrao: '*{servico}*\nCom quem você quer marcar?',
+    padrao: [
+      'Quantas pessoas vêm? Escreva só o número, por exemplo *12*.',
+      '',
+      'Pelo WhatsApp reservamos para até {maximo} pessoas.',
+    ].join('\n'),
+  }),
+
+  'cliente.grupoGrande.corpo': meta({
+    grupo: 'cliente',
+    rotulo: 'Grupo acima do limite',
+    ajuda: 'Grupo maior que "booking.maxPartySize", ou maior que qualquer ambiente.',
+    variaveis: ['pessoas'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      'Para {pessoas} a gente prefere combinar direitinho com você 🙂',
+      '',
+      'Toque em *Falar com atendente* que a equipe organiza o espaço.',
+    ].join('\n'),
+  }),
+
+  'cliente.escolherAmbiente.corpo': meta({
+    grupo: 'cliente',
+    rotulo: 'Escolher o ambiente',
+    ajuda: 'Pulada quando só um ambiente comporta o grupo.',
+    variaveis: ['pessoas'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      'Mesa para *{pessoas}*.',
+      'Onde vocês preferem sentar?',
+    ].join('\n'),
   }),
 
   'cliente.escolherDia.corpo': meta({
@@ -223,149 +279,224 @@ export const TEXTOS = {
     variaveis: ['dia'],
     limite: CORPO,
     multilinha: true,
-    padrao: '*{dia}*\nEscolha o horário:',
+    padrao: [
+      '*{dia}*',
+      'Escolha o horário:',
+    ].join('\n'),
   }),
 
   'cliente.confirmar.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Conferir antes de confirmar',
-    variaveis: ['servico', 'preco', 'barbeiro', 'data', 'duracao'],
+    variaveis: ['pessoas', 'ambiente', 'data', 'aprovacao'],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      '*Confere para mim?*',
+      'Confere a reserva:',
       '',
-      '💈 {servico}{preco}',
-      '✂️ Com {barbeiro}',
-      '📅 {data}',
-      '⏱️ {duracao}',
+      '👥 {pessoas}',
+      '📍 {ambiente}',
+      '📅 *{data}*{aprovacao}',
+      '',
+      'Posso confirmar?',
     ].join('\n'),
   }),
 
-  'cliente.agendado.corpo': meta({
+  'cliente.confirmar.aprovacao': meta({
     grupo: 'cliente',
-    rotulo: 'Agendamento confirmado',
-    ajuda: 'A única confirmação que o cliente recebe — sai na hora, não pela fila.',
-    variaveis: ['marca', 'servico', 'preco', 'barbeiro', 'data', 'duracao', 'endereco'],
+    rotulo: 'Conferir — aviso de grupo grande',
+    ajuda: 'Entra no {aprovacao} quando o grupo passa de "booking.approvalAbovePartySize".',
+    variaveis: [],
+    multilinha: true,
+    padrao: '\n\nComo o grupo é grande, a casa confirma o pedido por aqui em seguida.',
+  }),
+
+  'cliente.reservado.corpo': meta({
+    grupo: 'cliente',
+    rotulo: 'Reserva confirmada',
+    ajuda: 'É a única confirmação que o cliente recebe — sai na hora, como resposta ao "Confirmar".',
+    variaveis: ['marca', 'pessoas', 'ambiente', 'data', 'endereco'],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      '✅ *Agendamento confirmado na {marca}*',
+      '✅ *Mesa reservada!*',
       '',
-      '💈 {servico}{preco}',
-      '✂️ Com {barbeiro}',
-      '📅 {data}',
-      '⏱️ {duracao}{endereco}',
+      '👥 {pessoas}',
+      '📍 {ambiente}',
+      '📅 *{data}*{endereco}',
       '',
-      'Te mando um lembrete antes. Se precisar mudar, é só voltar aqui em *Meus agendamentos*.',
+      'Te lembro antes. Até lá! 🍷',
     ].join('\n'),
   }),
 
-  'cliente.agendado.endereco': meta({
+  'cliente.reservado.endereco': meta({
     grupo: 'cliente',
-    rotulo: 'Agendamento confirmado — linha do endereço',
-    ajuda: 'Encaixado em {endereco}. Some quando a barbearia não tem endereço no config.',
+    rotulo: 'Reserva confirmada — linha do endereço',
     variaveis: ['endereco'],
     multilinha: false,
     padrao: '\n📍 {endereco}',
   }),
 
+  'cliente.aguardandoAprovacao.corpo': meta({
+    grupo: 'cliente',
+    rotulo: 'Pedido de grupo grande enviado',
+    variaveis: ['marca', 'pessoas', 'ambiente', 'data'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      '📨 *Pedido enviado!*',
+      '',
+      '👥 {pessoas}',
+      '📍 {ambiente}',
+      '📅 *{data}*',
+      '',
+      'Os lugares já estão guardados. A equipe da {marca} confirma por aqui em breve.',
+    ].join('\n'),
+  }),
+
+  'cliente.aprovada.corpo': meta({
+    grupo: 'cliente',
+    rotulo: 'Pedido aprovado pelo dono',
+    ajuda: 'Sai quando o dono toca em "Aprovar". Só chega se o cliente falou com o bot nas últimas 24h.',
+    variaveis: ['marca', 'pessoas', 'ambiente', 'data', 'endereco'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      '🎉 *Reserva confirmada pela {marca}!*',
+      '',
+      '👥 {pessoas}',
+      '📍 {ambiente}',
+      '📅 *{data}*{endereco}',
+      '',
+      'Te lembro antes. Até lá!',
+    ].join('\n'),
+  }),
+
+  'cliente.recusada.corpo': meta({
+    grupo: 'cliente',
+    rotulo: 'Pedido recusado pelo dono',
+    ajuda: 'Sai quando o dono toca em "Recusar".',
+    variaveis: ['marca', 'pessoas', 'data'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      'Poxa, não vamos conseguir receber {pessoas} em *{data}* 😕',
+      '',
+      'Quer tentar outro horário, ou falar com a equipe da {marca}?',
+    ].join('\n'),
+  }),
+
   'cliente.semHorario.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Sem horário livre',
+    rotulo: 'Sem mesa disponível',
     variaveis: [],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      'Poxa, não encontrei horário livre nos próximos dias 😕',
+      'Poxa, não achei mesa livre para esse grupo nos próximos dias 😕',
       '',
-      'Pode ser que tenha aberto alguma vaga desde então — vale tentar de novo mais tarde, ou falar com a equipe.',
+      'Fale com a gente que a equipe tenta encaixar.',
     ].join('\n'),
   }),
 
   'cliente.horarioOcupado.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Horário acabou de ser preenchido',
-    ajuda: 'Duas pessoas confirmaram o mesmo horário no mesmo instante.',
+    rotulo: 'Ambiente lotou antes de confirmar',
     variaveis: [],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      '😅 *Esse horário acabou de ser preenchido*',
+      'Ih, esse horário acabou de lotar 😅',
       '',
-      'Alguém confirmou nesse exato momento. Vamos escolher outro?',
+      'Escolha outro, rapidinho:',
     ].join('\n'),
   }),
 
-  'cliente.limiteAgendamentos.corpo': meta({
+  'cliente.limiteReservas.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Limite de agendamentos atingido',
+    rotulo: 'Limite de reservas atingido',
     variaveis: ['quantos'],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      'Você já tem {quantos} 👍',
+      'Você já tem {quantos}.',
       '',
-      'Para marcar mais um, cancele ou remarque um dos que já estão na agenda.',
+      'Para reservar mais, cancele ou remarque uma delas em *Minhas reservas*.',
     ].join('\n'),
   }),
 
-  'cliente.limiteAgendamentos.um': meta({
+  'cliente.limiteReservas.um': meta({
     grupo: 'cliente',
     rotulo: 'Limite — no singular',
-    ajuda: 'Encaixado em {quantos} quando o limite da barbearia é 1.',
     variaveis: [],
     multilinha: false,
-    padrao: 'um horário marcado',
+    padrao: 'uma reserva',
   }),
 
-  'cliente.limiteAgendamentos.varios': meta({
+  'cliente.limiteReservas.varios': meta({
     grupo: 'cliente',
     rotulo: 'Limite — no plural',
-    ajuda: 'Encaixado em {quantos} quando o limite é maior que 1.',
     variaveis: ['limite'],
     multilinha: false,
-    padrao: '{limite} horários marcados',
+    padrao: '{limite} reservas',
   }),
 
   // -------------------------------------------------------------------------
-  // Cliente — agendamentos, cancelamento e LGPD
+  // Cliente — reservas já feitas
   // -------------------------------------------------------------------------
 
-  'cliente.meusAgendamentos.titulo': meta({
+  'cliente.minhasReservas.titulo': meta({
     grupo: 'cliente',
-    rotulo: 'Meus agendamentos — título',
+    rotulo: 'Minhas reservas — título',
     variaveis: [],
     limite: CORPO,
     multilinha: false,
-    padrao: '*Seus horários marcados*',
+    padrao: '*Suas reservas*',
   }),
 
-  'cliente.meusAgendamentos.vazio': meta({
+  'cliente.minhasReservas.vazio': meta({
     grupo: 'cliente',
-    rotulo: 'Meus agendamentos — nenhum',
+    rotulo: 'Minhas reservas — nenhuma',
     variaveis: [],
     limite: CORPO,
     multilinha: false,
-    padrao: 'Você não tem nenhum horário marcado no momento.',
+    padrao: 'Você não tem nenhuma reserva no momento.',
   }),
 
-  'cliente.acoesAgendamento.corpo': meta({
+  'cliente.acoesReserva.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Ações de um agendamento',
-    variaveis: ['data', 'servico', 'barbeiro'],
+    rotulo: 'Ações de uma reserva',
+    variaveis: ['data', 'pessoas', 'ambiente', 'status'],
     limite: CORPO,
     multilinha: true,
-    padrao: ['📅 *{data}*', '💈 {servico}', '✂️ Com {barbeiro}', '', 'O que você quer fazer?'].join('\n'),
+    padrao: [
+      '📅 *{data}*',
+      '👥 {pessoas}',
+      '📍 {ambiente}{status}',
+      '',
+      'O que você quer fazer?',
+    ].join('\n'),
+  }),
+
+  'cliente.acoesReserva.pendente': meta({
+    grupo: 'cliente',
+    rotulo: 'Ações — pedido ainda pendente',
+    variaveis: [],
+    multilinha: false,
+    padrao: '\n⏳ Esperando a confirmação da casa',
   }),
 
   'cliente.confirmarCancelamento.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Confirmar cancelamento',
-    variaveis: ['data', 'servico', 'barbeiro'],
+    variaveis: ['data', 'pessoas', 'ambiente'],
     limite: CORPO,
     multilinha: true,
-    padrao: 'Cancelar o horário de *{data}*?\n\n{servico} com {barbeiro}',
+    padrao: [
+      'Cancelar a reserva de *{data}*?',
+      '',
+      '{pessoas} · {ambiente}',
+    ].join('\n'),
   }),
 
   'cliente.cancelado.corpo': meta({
@@ -374,44 +505,41 @@ export const TEXTOS = {
     variaveis: [],
     limite: CORPO,
     multilinha: false,
-    padrao: '✅ Horário cancelado. O espaço já está liberado para outra pessoa.',
+    padrao: '✅ Reserva cancelada. A mesa já está livre para outro grupo.',
   }),
 
   'cliente.cancelamentoTarde.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Cancelamento fora do prazo',
-    ajuda: 'O prazo vem de "booking.cancelDeadlineHours" no config.',
     variaveis: ['horas'],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      'Esse horário é daqui a pouco — pelo app só dá para cancelar com {horas}h de antecedência.',
+      'Pelo WhatsApp dá para cancelar até {horas}h antes 🙏',
       '',
-      'Me deixa chamar alguém da equipe para resolver com você.',
+      'Como está em cima da hora, fale com a gente por aqui que a equipe resolve.',
     ].join('\n'),
   }),
 
   'cliente.presencaConfirmada.corpo': meta({
     grupo: 'cliente',
     rotulo: 'Presença confirmada',
-    ajuda: 'Resposta ao botão "Confirmo presença" do lembrete de 24h.',
     variaveis: [],
     limite: CORPO,
     multilinha: false,
-    padrao: '👍 Presença confirmada, te esperamos! Até já.',
+    padrao: '👍 Presença confirmada, sua mesa está garantida! Até já.',
   }),
 
-  'cliente.posAtendimento.corpo': meta({
+  'cliente.posVisita.corpo': meta({
     grupo: 'cliente',
-    rotulo: 'Pós-atendimento (dentro da janela de 24h)',
-    ajuda: 'Versão com botão de link, usada quando o cliente falou com o bot nas últimas 24h. Fora da janela vale o template da Meta.',
-    variaveis: ['nome', 'servico', 'marca'],
+    rotulo: 'Pós-visita (dentro da janela de 24h)',
+    variaveis: ['nome', 'marca'],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      'Opa, {nome}! Tudo certo com o {servico}? 💈',
+      'Oi, {nome}! Obrigado por vir à {marca} ontem 🍷',
       '',
-      'Se curtiu, uma avaliação ajuda demais a {marca} a aparecer para mais gente.',
+      'Se gostou, uma avaliação ajuda demais a gente a aparecer para mais gente.',
     ].join('\n'),
   }),
 
@@ -426,7 +554,7 @@ export const TEXTOS = {
       '',
       'Você não vai mais receber nossas mensagens automáticas — nem lembretes, nem promoções.',
       '',
-      'Seus agendamentos continuam valendo. Para voltar a receber, escreva *quero receber*.',
+      'Suas reservas continuam valendo. Para voltar a receber, escreva *quero receber*.',
     ].join('\n'),
   }),
 
@@ -436,9 +564,12 @@ export const TEXTOS = {
     variaveis: ['marca'],
     limite: TEXTO_LIVRE,
     multilinha: true,
-    padrao:
-      'Combinado! Você volta a receber os lembretes e novidades da {marca} 👍\nEscreva *menu* quando quiser marcar um horário.',
+    padrao: [
+      'Combinado! Você volta a receber os lembretes e novidades da {marca} 👍',
+      'Escreva *menu* quando quiser reservar uma mesa.',
+    ].join('\n'),
   }),
+
   // -------------------------------------------------------------------------
   // Dono — painel no WhatsApp
   // -------------------------------------------------------------------------
@@ -448,14 +579,13 @@ export const TEXTOS = {
     rotulo: 'Painel do dono — título',
     variaveis: ['marca', 'status'],
     limite: CORPO,
-    multilinha: true,
+    multilinha: false,
     padrao: '*{marca} — painel*{status}',
   }),
 
   'dono.menu.statusPausado': meta({
     grupo: 'dono',
     rotulo: 'Painel — aviso de bot pausado',
-    ajuda: 'Encaixado em {status}. Some quando o bot está no ar.',
     variaveis: ['hora'],
     multilinha: true,
     padrao: '\n\n🔇 Bot pausado até {hora}.',
@@ -470,7 +600,7 @@ export const TEXTOS = {
     padrao: [
       '🔇 Atendimento automático pausado até {hora}.',
       '',
-      'Nesse tempo as mensagens dos clientes chegam normalmente, mas o bot não responde — quem responde é você.',
+      'Os clientes que escreverem recebem um aviso de que a equipe já vai responder.',
     ].join('\n'),
   }),
 
@@ -485,39 +615,41 @@ export const TEXTOS = {
 
   'dono.agenda.titulo': meta({
     grupo: 'dono',
-    rotulo: 'Agenda do dia — título',
-    ajuda: 'A lista de horários é montada logo abaixo, a partir da agenda.',
-    variaveis: ['dia', 'total'],
+    rotulo: 'Reservas do dia — título',
+    variaveis: ['dia', 'total', 'pessoas'],
     limite: CORPO,
     multilinha: false,
-    padrao: '📅 *{dia}* — {total} agendamento(s)',
+    padrao: '📅 *{dia}* — {total} reserva(s), {pessoas}',
   }),
 
   'dono.agenda.vazia': meta({
     grupo: 'dono',
-    rotulo: 'Agenda do dia — vazia',
+    rotulo: 'Reservas do dia — vazia',
     variaveis: ['dia'],
     limite: CORPO,
     multilinha: true,
-    padrao: '📅 *{dia}*\n\nNenhum horário marcado.',
-  }),
-
-  'dono.agenda.linha': meta({
-    grupo: 'dono',
-    rotulo: 'Agenda do dia — uma linha',
-    ajuda: 'Repetida para cada horário do dia. {confirmado} é o ✅ de quem confirmou presença.',
-    variaveis: ['hora', 'servico', 'confirmado', 'cliente', 'barbeiro'],
-    multilinha: true,
-    padrao: '{hora}  {servico}{confirmado}\n      {cliente} · {barbeiro}',
+    padrao: [
+      '📅 *{dia}*',
+      '',
+      'Nenhuma reserva.',
+    ].join('\n'),
   }),
 
   'dono.semana.titulo': meta({
     grupo: 'dono',
     rotulo: 'Próximos 7 dias — título',
-    variaveis: ['total'],
+    variaveis: ['total', 'pessoas'],
     limite: CORPO,
     multilinha: false,
-    padrao: '📊 *Próximos 7 dias* — {total} no total',
+    padrao: '📊 *Próximos 7 dias* — {total} reserva(s), {pessoas}',
+  }),
+
+  'dono.semana.linha': meta({
+    grupo: 'dono',
+    rotulo: 'Próximos 7 dias — um dia',
+    variaveis: ['dia', 'reservas', 'pessoas'],
+    multilinha: false,
+    padrao: '{dia}  {reservas} reserva(s) · {pessoas}',
   }),
 
   'dono.semana.vazia': meta({
@@ -526,46 +658,133 @@ export const TEXTOS = {
     variaveis: [],
     limite: CORPO,
     multilinha: false,
-    padrao: 'Nenhum horário marcado nos próximos 7 dias.',
+    padrao: 'Nenhuma reserva nos próximos 7 dias.',
+  }),
+
+  'dono.pendentes.corpo': meta({
+    grupo: 'dono',
+    rotulo: 'Pedidos pendentes — lista',
+    variaveis: ['total'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      '⏳ *{total} pedido(s) de grupo grande* esperando sua resposta.',
+      '',
+      'Toque num pedido para aprovar ou recusar.',
+    ].join('\n'),
+  }),
+
+  'dono.pendentes.vazio': meta({
+    grupo: 'dono',
+    rotulo: 'Pedidos pendentes — nenhum',
+    variaveis: [],
+    limite: CORPO,
+    multilinha: false,
+    padrao: 'Nenhum pedido esperando resposta 👍',
+  }),
+
+  'dono.pedido.jaResolvido': meta({
+    grupo: 'dono',
+    rotulo: 'Pedido já resolvido',
+    ajuda: 'Aparece quando o dono toca num botão de um pedido antigo.',
+    variaveis: [],
+    limite: CORPO,
+    multilinha: false,
+    padrao: 'Esse pedido já foi resolvido — aprovado, recusado ou cancelado pelo cliente.',
+  }),
+
+  'dono.aprovada.corpo': meta({
+    grupo: 'dono',
+    rotulo: 'Pedido aprovado',
+    variaveis: ['cliente', 'pessoas'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: '✅ Reserva de {cliente} ({pessoas}) aprovada. O cliente foi avisado e recebe os lembretes.',
+  }),
+
+  'dono.recusada.corpo': meta({
+    grupo: 'dono',
+    rotulo: 'Pedido recusado',
+    variaveis: ['cliente'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: 'Pedido de {cliente} recusado. Os lugares voltaram para a agenda e o cliente foi avisado.',
+  }),
+
+  'dono.relatorio.titulo': meta({
+    grupo: 'dono',
+    rotulo: 'Relatório — título',
+    variaveis: ['marca'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: '📈 *Relatório da {marca}*',
+  }),
+
+  'dono.relatorio.hoje': meta({
+    grupo: 'dono',
+    rotulo: 'Relatório — hoje',
+    variaveis: [],
+    multilinha: false,
+    padrao: 'Hoje',
+  }),
+
+  'dono.relatorio.ontem': meta({
+    grupo: 'dono',
+    rotulo: 'Relatório — ontem',
+    variaveis: [],
+    multilinha: false,
+    padrao: 'Ontem',
+  }),
+
+  'dono.relatorio.semana': meta({
+    grupo: 'dono',
+    rotulo: 'Relatório — 7 dias',
+    variaveis: [],
+    multilinha: false,
+    padrao: 'Últimos 7 dias',
+  }),
+
+  'dono.relatorio.mes': meta({
+    grupo: 'dono',
+    rotulo: 'Relatório — mês',
+    variaveis: [],
+    multilinha: false,
+    padrao: 'No mês',
   }),
 
   'dono.bloquear.corpo': meta({
     grupo: 'dono',
-    rotulo: 'Bloquear horário — menu',
+    rotulo: 'Fechar agenda — menu',
     variaveis: [],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      '*Bloquear horário*',
-      'O período fica indisponível para novos agendamentos.',
+      'Qual período fechar?',
       '',
-      '_Quem já marcou continua marcado — avise essas pessoas._',
+      'Ninguém mais consegue reservar nele. Quem já reservou continua reservado.',
     ].join('\n'),
   }),
 
   'dono.bloqueado.corpo': meta({
     grupo: 'dono',
-    rotulo: 'Bloqueio aplicado',
+    rotulo: 'Agenda fechada',
     variaveis: ['dia', 'periodo', 'aviso'],
     limite: CORPO,
-    multilinha: true,
-    padrao: '🚫 Bloqueado: *{dia}*, {periodo}.{aviso}',
+    multilinha: false,
+    padrao: '🚫 Fechado para reservas: *{dia}*, {periodo}.{aviso}',
   }),
 
   'dono.bloqueado.aviso': meta({
     grupo: 'dono',
-    rotulo: 'Bloqueio — aviso de agendamentos afetados',
-    ajuda: 'Encaixado em {aviso}. Some quando o período estava vazio.',
+    rotulo: 'Agenda fechada — reservas afetadas',
     variaveis: ['total'],
     multilinha: true,
-    padrao:
-      '\n\n⚠️ Já havia {total} agendamento(s) nesse período. Eles continuam valendo — avise os clientes.',
+    padrao: '\n\n⚠️ Atenção: já existem {total} reserva(s) nesse período. Avise cada cliente.',
   }),
 
   'dono.bloqueado.periodoDia': meta({
     grupo: 'dono',
-    rotulo: 'Bloqueio — o dia todo',
-    ajuda: 'Encaixado em {periodo}.',
+    rotulo: 'Fechar — o dia todo',
     variaveis: [],
     multilinha: false,
     padrao: 'o dia todo',
@@ -573,37 +792,59 @@ export const TEXTOS = {
 
   'dono.bloqueado.periodoFaixa': meta({
     grupo: 'dono',
-    rotulo: 'Bloqueio — faixa de horas',
-    ajuda: 'Encaixado em {periodo} quando o bloqueio é de um turno.',
+    rotulo: 'Fechar — faixa de horas',
     variaveis: ['de', 'ate'],
     multilinha: false,
     padrao: 'das {de}h às {ate}h',
   }),
 
-  'dono.aviso.novoAgendamento': meta({
+  'dono.aviso.novaReserva': meta({
     grupo: 'dono',
-    rotulo: 'Aviso — novo agendamento',
-    ajuda: 'Texto livre: só chega se o dono tiver falado com o bot nas últimas 24h.',
-    variaveis: ['data', 'servico', 'barbeiro', 'cliente'],
+    rotulo: 'Aviso — nova reserva',
+    variaveis: ['data', 'pessoas', 'ambiente', 'cliente', 'waId'],
     limite: TEXTO_LIVRE,
     multilinha: true,
-    padrao: ['🗓️ *Novo agendamento*', '', '{data}', '{servico} · {barbeiro}', 'Cliente: {cliente}'].join('\n'),
+    padrao: [
+      '🍽️ *Nova reserva*',
+      '',
+      '{data}',
+      '{pessoas} · {ambiente}',
+      'Cliente: {cliente}',
+    ].join('\n'),
+  }),
+
+  'dono.aviso.pedidoAprovacao': meta({
+    grupo: 'dono',
+    rotulo: 'Aviso — pedido de grupo grande',
+    ajuda: 'Vai com os botões "Aprovar" e "Recusar".',
+    variaveis: ['data', 'pessoas', 'ambiente', 'cliente', 'waId'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      '⏳ *Pedido de grupo grande*',
+      '',
+      '{data}',
+      '{pessoas} · {ambiente}',
+      'Cliente: {cliente} (+{waId})',
+      '',
+      'Os lugares ficam guardados até você responder.',
+    ].join('\n'),
   }),
 
   'dono.aviso.cancelamento': meta({
     grupo: 'dono',
     rotulo: 'Aviso — cancelamento',
-    variaveis: ['data', 'servico', 'barbeiro', 'cliente'],
+    variaveis: ['data', 'pessoas', 'ambiente', 'cliente', 'waId'],
     limite: TEXTO_LIVRE,
     multilinha: true,
     padrao: [
-      '❌ *Agendamento cancelado*',
+      '❌ *Reserva cancelada*',
       '',
       '{data}',
-      '{servico} · {barbeiro}',
+      '{pessoas} · {ambiente}',
       'Cliente: {cliente}',
       '',
-      'O horário já está livre na agenda.',
+      'Os lugares voltaram para a agenda.',
     ].join('\n'),
   }),
 
@@ -614,18 +855,17 @@ export const TEXTOS = {
     limite: TEXTO_LIVRE,
     multilinha: true,
     padrao: [
-      '🙋 *Cliente pediu atendimento humano*',
+      '🙋 *{cliente} quer falar com alguém*',
       '',
-      '{cliente} — wa.me/{waId}',
+      'WhatsApp: +{waId}',
       '',
-      'O bot ficou em silêncio nessa conversa para não atropelar você.',
+      'O bot ficou em silêncio nessa conversa. Responda direto pelo WhatsApp Business.',
     ].join('\n'),
   }),
 
   'dono.semNomeInicio': meta({
     grupo: 'dono',
     rotulo: 'Cliente sem nome (começo de frase)',
-    ajuda: 'Usado no aviso de atendimento humano, onde o nome abre a linha.',
     variaveis: [],
     multilinha: false,
     padrao: 'Sem nome',
@@ -634,138 +874,128 @@ export const TEXTOS = {
   'dono.semNome': meta({
     grupo: 'dono',
     rotulo: 'Cliente sem nome',
-    ajuda: 'Usado em {cliente} quando o WhatsApp não informou o nome do perfil.',
     variaveis: [],
     multilinha: false,
     padrao: 'sem nome',
   }),
 
   // -------------------------------------------------------------------------
-  // Barbeiro — painel no WhatsApp
-  //
-  // O painel do barbeiro é o do dono com menos poder: ele vê a agenda DELE,
-  // quantos cortes ELE fez e fecha a agenda DELE. Nada aqui fala da barbearia
-  // inteira — nem do faturamento, nem do bot, nem do colega do lado.
+  // Recepção — painel no WhatsApp
   // -------------------------------------------------------------------------
 
-  'barbeiro.menu.titulo': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Painel do barbeiro — título',
+  'recepcao.menu.titulo': meta({
+    grupo: 'recepcao',
+    rotulo: 'Painel da recepção — título',
     variaveis: ['nome', 'marca'],
     limite: CORPO,
     multilinha: true,
-    padrao: '*{marca}*\nOi, {nome} 💈',
-  }),
-
-  'barbeiro.agenda.titulo': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Minha agenda — título',
-    variaveis: ['dia', 'total'],
-    limite: CORPO,
-    multilinha: false,
-    padrao: '*Sua agenda — {dia}* ({total})',
-  }),
-
-  'barbeiro.agenda.vazia': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Minha agenda — dia sem ninguém',
-    variaveis: ['dia'],
-    limite: CORPO,
-    multilinha: false,
-    padrao: 'Nenhum horário marcado com você em {dia}.',
-  }),
-
-  'barbeiro.agenda.linha': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Minha agenda — uma linha',
-    ajuda: 'Uma por horário. {confirmado} vira um ✅ quando o cliente confirmou.',
-    variaveis: ['hora', 'servico', 'confirmado', 'cliente'],
-    multilinha: true,
-    padrao: '{hora}  {servico}{confirmado}\n      {cliente}',
-  }),
-
-  'barbeiro.semana.titulo': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Minha semana — título',
-    variaveis: ['total'],
-    limite: CORPO,
-    multilinha: false,
-    padrao: '*Seus próximos 7 dias* — {total} no total',
-  }),
-
-  'barbeiro.semana.vazia': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Minha semana — sem nada',
-    variaveis: [],
-    multilinha: false,
-    padrao: 'Nenhum horário marcado com você nos próximos 7 dias.',
-  }),
-
-  'barbeiro.cortes.corpo': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Meus números',
-    ajuda: 'Conta o que já terminou e não foi cancelado. O de hoje sobe durante o dia.',
-    variaveis: ['hoje', 'ontem', 'mes'],
-    limite: CORPO,
-    multilinha: true,
     padrao: [
-      '*Seus cortes*',
-      '',
-      'Hoje:  {hoje}',
-      'Ontem: {ontem}',
-      'No mês: {mes}',
+      '*{marca}*',
+      'Oi, {nome} 👋',
     ].join('\n'),
   }),
 
-  'barbeiro.folga.corpo': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Tirar folga — pergunta',
-    ajuda: 'Fecha a agenda só do barbeiro. A barbearia continua atendendo com os outros.',
+  'recepcao.agenda.titulo': meta({
+    grupo: 'recepcao',
+    rotulo: 'Reservas do dia — título',
+    variaveis: ['dia', 'total', 'pessoas'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: '📅 *{dia}* — {total} reserva(s), {pessoas}',
+  }),
+
+  'recepcao.agenda.vazia': meta({
+    grupo: 'recepcao',
+    rotulo: 'Reservas do dia — vazia',
+    variaveis: ['dia'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: 'Nenhuma reserva em {dia}.',
+  }),
+
+  'recepcao.agenda.linha': meta({
+    grupo: 'recepcao',
+    rotulo: 'Reservas do dia — uma linha',
+    ajuda: 'Usada também na lista do dono.',
+    variaveis: ['hora', 'cliente', 'pessoas', 'ambiente', 'status'],
+    multilinha: false,
+    padrao: '{hora}  {cliente} · {pessoas} · {ambiente}{status}',
+  }),
+
+  'recepcao.chegadas.corpo': meta({
+    grupo: 'recepcao',
+    rotulo: 'Marcar chegada — lista',
     variaveis: [],
     limite: CORPO,
-    multilinha: true,
-    padrao: 'Quando você não vai atender?\n\nFecha só a sua agenda — a barbearia continua aberta.',
+    multilinha: false,
+    padrao: 'Quem chegou? Toque na reserva para marcar.',
   }),
 
-  'barbeiro.folga.confirmada': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Folga registrada',
-    variaveis: ['dia', 'periodo', 'aviso'],
+  'recepcao.chegadas.vazio': meta({
+    grupo: 'recepcao',
+    rotulo: 'Marcar chegada — sem reservas hoje',
+    variaveis: [],
+    limite: CORPO,
+    multilinha: false,
+    padrao: 'Nenhuma reserva para hoje.',
+  }),
+
+  'recepcao.reserva.corpo': meta({
+    grupo: 'recepcao',
+    rotulo: 'Marcar chegada — uma reserva',
+    variaveis: ['hora', 'cliente', 'pessoas', 'ambiente', 'status', 'waId'],
     limite: CORPO,
     multilinha: true,
-    padrao: '✅ Folga registrada: {dia}, {periodo}.\n\nNinguém mais consegue marcar com você nesse horário.{aviso}',
+    padrao: [
+      '*{hora} — {cliente}*{status}',
+      '👥 {pessoas}',
+      '📍 {ambiente}',
+      '📱 +{waId}',
+    ].join('\n'),
   }),
 
-  'barbeiro.folga.aviso': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Folga — aviso de quem já estava marcado',
-    ajuda: 'Encaixado em {aviso}. Some quando não havia ninguém marcado.',
-    variaveis: ['total'],
-    multilinha: true,
-    padrao: '\n\n⚠️ Atenção: {total} cliente(s) já tinham horário marcado com você aí. Avise cada um.',
+  'recepcao.marcar.chegou': meta({
+    grupo: 'recepcao',
+    rotulo: 'Chegada registrada',
+    variaveis: ['cliente', 'pessoas', 'ambiente'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: '🟢 {cliente} chegou — {pessoas}, {ambiente}.',
   }),
 
-  'barbeiro.folga.periodoDia': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Folga — o dia inteiro',
+  'recepcao.marcar.faltou': meta({
+    grupo: 'recepcao',
+    rotulo: 'Falta registrada',
+    variaveis: ['cliente'],
+    limite: CORPO,
+    multilinha: false,
+    padrao: '❌ Falta de {cliente} registrada.',
+  }),
+
+  'recepcao.marcar.naoEncontrada': meta({
+    grupo: 'recepcao',
+    rotulo: 'Reserva não encontrada',
     variaveis: [],
+    limite: CORPO,
     multilinha: false,
-    padrao: 'o dia inteiro',
+    padrao: 'Essa reserva não está mais na lista (foi cancelada?).',
   }),
 
-  'barbeiro.folga.periodoFaixa': meta({
-    grupo: 'barbeiro',
-    rotulo: 'Folga — faixa de horas',
-    variaveis: ['de', 'ate'],
-    multilinha: false,
-    padrao: 'das {de}h às {ate}h',
+  'recepcao.resumo.bloco': meta({
+    grupo: 'recepcao',
+    rotulo: 'Resumo — um período',
+    ajuda: 'Usado também no relatório do dono.',
+    variaveis: ['periodo', 'reservas', 'pessoas', 'compareceram', 'faltaram'],
+    limite: CORPO,
+    multilinha: true,
+    padrao: [
+      '*{periodo}* — {reservas} reserva(s), {pessoas}',
+      '🟢 {compareceram} vieram · ❌ {faltaram} faltaram',
+    ].join('\n'),
   }),
 
   // -------------------------------------------------------------------------
-  // Rótulos de botões e linhas de lista
-  //
-  // Os limites aqui são duros: a Meta corta o que passar, e um rótulo cortado
-  // no meio é a primeira coisa que o cliente vê.
+  // Botões e listas — limites da Meta: botão 20, linha 24, descrição 72, seção 24
   // -------------------------------------------------------------------------
 
   'rotulos.lista.verOpcoes': meta({
@@ -777,18 +1007,9 @@ export const TEXTOS = {
     padrao: 'Ver opções',
   }),
 
-  'rotulos.lista.verServicos': meta({
-    grupo: 'rotulos',
-    rotulo: 'Botão que abre a lista de serviços',
-    variaveis: [],
-    limite: BOTAO,
-    multilinha: false,
-    padrao: 'Ver serviços',
-  }),
-
   'rotulos.lista.escolher': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão que abre a lista de barbeiros',
+    rotulo: 'Botão das listas de escolha',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
@@ -797,65 +1018,65 @@ export const TEXTOS = {
 
   'rotulos.lista.escolherDia': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão que abre a lista de dias',
+    rotulo: 'Botão da lista de dias',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Escolher o dia',
+    padrao: 'Escolher dia',
   }),
 
   'rotulos.lista.verHorarios': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão que abre a lista de horários',
+    rotulo: 'Botão da lista de horários',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
     padrao: 'Ver horários',
   }),
 
-  'rotulos.lista.verAgendamentos': meta({
+  'rotulos.lista.verReservas': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão que abre a lista de agendamentos',
+    rotulo: 'Botão da lista de reservas',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Ver agendamentos',
+    padrao: 'Ver reservas',
   }),
 
   'rotulos.secao.atendimento': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — atendimento',
+    rotulo: 'Seção do menu principal',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
     padrao: 'Atendimento',
   }),
 
-  'rotulos.secao.servicos': meta({
+  'rotulos.secao.pessoas': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — serviços',
+    rotulo: 'Seção — pessoas',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Serviços',
+    padrao: 'Pessoas',
   }),
 
-  'rotulos.secao.barbeiros': meta({
+  'rotulos.secao.ambientes': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — barbeiros',
+    rotulo: 'Seção — ambientes',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Barbeiros',
+    padrao: 'Ambientes',
   }),
 
   'rotulos.secao.dias': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — dias disponíveis',
+    rotulo: 'Seção — dias',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Dias disponíveis',
+    padrao: 'Dias com mesa',
   }),
 
   'rotulos.secao.outrasOpcoes': meta({
@@ -867,251 +1088,117 @@ export const TEXTOS = {
     padrao: 'Outras opções',
   }),
 
-  'rotulos.secao.agendamentos': meta({
+  'rotulos.secao.reservas': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — agendamentos',
+    rotulo: 'Seção — reservas do cliente',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Agendamentos',
+    padrao: 'Suas reservas',
   }),
 
   'rotulos.secao.administracao': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — administração (dono)',
+    rotulo: 'Seção — painel do dono',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
     padrao: 'Administração',
   }),
 
+  'rotulos.secao.pedidos': meta({
+    grupo: 'rotulos',
+    rotulo: 'Seção — pedidos pendentes',
+    variaveis: [],
+    limite: SECAO,
+    multilinha: false,
+    padrao: 'Pedidos',
+  }),
+
   'rotulos.secao.bloqueios': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — bloqueios rápidos (dono)',
+    rotulo: 'Seção — fechar agenda',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Bloqueios rápidos',
+    padrao: 'Fechar agenda',
   }),
 
-  'rotulos.secao.minhaAgenda': meta({
+  'rotulos.secao.recepcao': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — painel do barbeiro',
+    rotulo: 'Seção — painel da recepção',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Seu dia a dia',
+    padrao: 'Recepção',
   }),
-  'rotulos.secao.folgas': meta({
+
+  'rotulos.secao.hoje': meta({
     grupo: 'rotulos',
-    rotulo: 'Seção — folgas do barbeiro',
+    rotulo: 'Seção — reservas de hoje',
     variaveis: [],
     limite: SECAO,
     multilinha: false,
-    padrao: 'Sua folga',
-  }),
-  'rotulos.barbeiro.hoje': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — agenda de hoje',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Minha agenda hoje',
-  }),
-  'rotulos.barbeiro.amanha': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — agenda de amanhã',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Minha agenda amanhã',
-  }),
-  'rotulos.barbeiro.semana': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — minha semana',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Minha semana',
-  }),
-  'rotulos.barbeiro.cortes': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — meus números',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Meus cortes',
-  }),
-  'rotulos.barbeiro.cortesDesc': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — meus números (descrição)',
-    variaveis: [],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'Hoje, ontem e no mês',
-  }),
-  'rotulos.barbeiro.folga': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — tirar folga',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Tirar folga',
-  }),
-  'rotulos.barbeiro.folgaDesc': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — tirar folga (descrição)',
-    variaveis: [],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'Fecha só a sua agenda',
-  }),
-  'rotulos.barbeiro.menu': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — voltar ao painel',
-    variaveis: [],
-    limite: BOTAO,
-    multilinha: false,
-    padrao: 'Voltar ao painel',
-  }),
-  'rotulos.barbeiro.voltar': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — botão voltar',
-    variaveis: [],
-    limite: BOTAO,
-    multilinha: false,
-    padrao: 'Voltar',
-  }),
-  'rotulos.barbeiro.voltarLista': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — voltar (linha de lista)',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Voltar',
-  }),
-  'rotulos.barbeiro.folgaHojeTarde': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga hoje à tarde',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Hoje à tarde',
-  }),
-  'rotulos.barbeiro.folgaHojeTardeDesc': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga hoje à tarde (descrição)',
-    variaveis: ['hora'],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'A partir das {hora}h de hoje',
-  }),
-  'rotulos.barbeiro.folgaHojeNoite': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga hoje à noite',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Hoje à noite',
-  }),
-  'rotulos.barbeiro.folgaHojeNoiteDesc': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga hoje à noite (descrição)',
-    variaveis: ['hora'],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'A partir das {hora}h de hoje',
-  }),
-  'rotulos.barbeiro.folgaHojeDia': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga o dia de hoje',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Hoje o dia todo',
-  }),
-  'rotulos.barbeiro.folgaAmanhaManha': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga amanhã de manhã',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Amanhã de manhã',
-  }),
-  'rotulos.barbeiro.folgaAmanhaManhaDesc': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga amanhã de manhã (descrição)',
-    variaveis: ['data', 'hora'],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'Dia {data}, até as {hora}h',
-  }),
-  'rotulos.barbeiro.folgaAmanhaDia': meta({
-    grupo: 'rotulos',
-    rotulo: 'Barbeiro — folga amanhã o dia todo',
-    variaveis: [],
-    limite: LINHA,
-    multilinha: false,
-    padrao: 'Amanhã o dia todo',
+    padrao: 'Hoje',
   }),
 
-  'rotulos.menu.agendar': meta({
+  'rotulos.menu.reservar': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — agendar horário',
+    rotulo: 'Menu — reservar',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Agendar horário',
+    padrao: 'Reservar mesa',
   }),
 
-  'rotulos.menu.agendarDesc': meta({
+  'rotulos.menu.reservarDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — agendar horário (descrição)',
+    rotulo: 'Menu — reservar, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
-    padrao: 'Escolha serviço, dia e hora',
+    padrao: 'Escolha dia, horário e ambiente',
   }),
 
-  'rotulos.menu.meus': meta({
+  'rotulos.menu.minhas': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — meus agendamentos',
+    rotulo: 'Menu — minhas reservas',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Meus agendamentos',
+    padrao: 'Minhas reservas',
   }),
 
-  'rotulos.menu.meusDesc': meta({
+  'rotulos.menu.minhasDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — meus agendamentos (descrição)',
+    rotulo: 'Menu — minhas reservas, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
     padrao: 'Ver, remarcar ou cancelar',
   }),
 
-  'rotulos.menu.servicos': meta({
+  'rotulos.menu.cardapio': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — serviços e preços',
+    rotulo: 'Menu — cardápio',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Serviços e preços',
+    padrao: 'Cardápio',
   }),
 
-  'rotulos.menu.servicosDesc': meta({
+  'rotulos.menu.cardapioDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — serviços e preços (descrição)',
+    rotulo: 'Menu — cardápio, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
-    padrao: 'O que fazemos e quanto custa',
+    padrao: 'Pratos da casa e preços',
   }),
 
   'rotulos.menu.horarios': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — horário de funcionamento',
+    rotulo: 'Menu — horários',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
@@ -1120,27 +1207,25 @@ export const TEXTOS = {
 
   'rotulos.menu.endereco': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — onde ficamos',
-    ajuda: 'Só aparece quando a barbearia tem endereço no config.',
+    rotulo: 'Menu — endereço',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Onde ficamos',
+    padrao: 'Endereço',
   }),
 
   'rotulos.menu.enderecoDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — onde ficamos (descrição)',
+    rotulo: 'Menu — endereço, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
-    padrao: 'Endereço e rota',
+    padrao: 'Como chegar',
   }),
 
   'rotulos.menu.pagamento': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — formas de pagamento',
-    ajuda: 'Só aparece quando "whatsapp.paymentMethods" está preenchido.',
+    rotulo: 'Menu — pagamento',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
@@ -1149,7 +1234,7 @@ export const TEXTOS = {
 
   'rotulos.menu.atendente': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — falar com atendente',
+    rotulo: 'Menu — atendente',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
@@ -1158,20 +1243,47 @@ export const TEXTOS = {
 
   'rotulos.menu.atendenteDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Menu — falar com atendente (descrição)',
+    rotulo: 'Menu — atendente, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
-    padrao: 'Chamar alguém da equipe',
+    padrao: 'Eventos, grupos e dúvidas',
   }),
 
-  'rotulos.botao.agendar': meta({
+  'rotulos.botao.reservar': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão — agendar',
+    rotulo: 'Botão — reservar',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Agendar',
+    padrao: 'Reservar mesa',
+  }),
+
+  'rotulos.botao.reservarMesa': meta({
+    grupo: 'rotulos',
+    rotulo: 'Botão — reservar (sem reservas)',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Reservar agora',
+  }),
+
+  'rotulos.botao.reservarOutra': meta({
+    grupo: 'rotulos',
+    rotulo: 'Botão — reservar outra',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Reservar outra',
+  }),
+
+  'rotulos.botao.outroHorario': meta({
+    grupo: 'rotulos',
+    rotulo: 'Botão — tentar outro horário',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Outro horário',
   }),
 
   'rotulos.botao.voltarMenu': meta({
@@ -1180,17 +1292,16 @@ export const TEXTOS = {
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Voltar ao menu',
+    padrao: 'Menu',
   }),
 
   'rotulos.linha.voltarMenu': meta({
     grupo: 'rotulos',
     rotulo: 'Linha — voltar ao menu',
-    ajuda: 'A última linha de toda lista do cliente.',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: '← Voltar ao menu',
+    padrao: '↩️ Voltar ao menu',
   }),
 
   'rotulos.botao.confirmar': meta({
@@ -1199,7 +1310,7 @@ export const TEXTOS = {
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Confirmar',
+    padrao: '✅ Confirmar',
   }),
 
   'rotulos.botao.trocarHorario': meta({
@@ -1222,29 +1333,20 @@ export const TEXTOS = {
 
   'rotulos.botao.atendente': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão — falar com atendente',
+    rotulo: 'Botão — atendente',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
     padrao: 'Falar com atendente',
   }),
 
-  'rotulos.botao.meus': meta({
+  'rotulos.botao.minhas': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão — meus agendamentos',
+    rotulo: 'Botão — minhas reservas',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Meus agendamentos',
-  }),
-
-  'rotulos.botao.agendarHorario': meta({
-    grupo: 'rotulos',
-    rotulo: 'Botão — agendar horário',
-    variaveis: [],
-    limite: BOTAO,
-    multilinha: false,
-    padrao: 'Agendar horário',
+    padrao: 'Minhas reservas',
   }),
 
   'rotulos.botao.verOutrosHorarios': meta({
@@ -1283,86 +1385,182 @@ export const TEXTOS = {
     padrao: 'Não, manter',
   }),
 
-  'rotulos.botao.marcarOutro': meta({
-    grupo: 'rotulos',
-    rotulo: 'Botão — marcar outro',
-    variaveis: [],
-    limite: BOTAO,
-    multilinha: false,
-    padrao: 'Marcar outro',
-  }),
-
   'rotulos.botao.avaliar': meta({
     grupo: 'rotulos',
-    rotulo: 'Botão — avaliar',
-    ajuda: 'Abre o link de "whatsapp.reviewUrl" no pós-atendimento.',
+    rotulo: 'Botão — avaliar no Google',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
     padrao: 'Avaliar',
   }),
 
-  'rotulos.linha.semPreferencia': meta({
+  'rotulos.linha.maisPessoas': meta({
     grupo: 'rotulos',
-    rotulo: 'Linha — sem preferência de barbeiro',
-    variaveis: [],
+    rotulo: 'Linha — grupo grande',
+    variaveis: ['total'],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Sem preferência',
+    padrao: '{total} ou mais',
   }),
 
-  'rotulos.linha.semPreferenciaDesc': meta({
+  'rotulos.linha.maisPessoasDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Linha — sem preferência (descrição)',
+    rotulo: 'Linha — grupo grande, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
-    padrao: 'Quem estiver livre primeiro',
+    padrao: 'Você digita o número',
+  }),
+
+  'rotulos.linha.tantoFaz': meta({
+    grupo: 'rotulos',
+    rotulo: 'Linha — qualquer ambiente',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Tanto faz',
+  }),
+
+  'rotulos.linha.tantoFazDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Linha — qualquer ambiente, descrição',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Onde tiver lugar primeiro',
   }),
 
   'rotulos.linha.maisDias': meta({
     grupo: 'rotulos',
-    rotulo: 'Linha — ver mais dias',
+    rotulo: 'Linha — mais dias',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Ver mais dias →',
+    padrao: 'Ver mais dias',
   }),
 
   'rotulos.linha.maisHorarios': meta({
     grupo: 'rotulos',
-    rotulo: 'Linha — ver mais horários',
+    rotulo: 'Linha — mais horários',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Ver mais horários →',
+    padrao: 'Ver mais horários',
   }),
 
-  'rotulos.barbeiroQualquer': meta({
+  'rotulos.linha.maisReservas': meta({
     grupo: 'rotulos',
-    rotulo: 'Nome do barbeiro quando não há preferência',
-    ajuda: 'Aparece na tela de conferência, antes de o sistema escolher quem atende.',
+    rotulo: 'Linha — mais reservas',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Ver mais reservas',
+  }),
+
+  'rotulos.pessoa.uma': meta({
+    grupo: 'rotulos',
+    rotulo: 'Pessoas — singular',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: '1 pessoa',
+  }),
+
+  'rotulos.pessoa.varias': meta({
+    grupo: 'rotulos',
+    rotulo: 'Pessoas — plural',
+    variaveis: ['total'],
+    limite: LINHA,
+    multilinha: false,
+    padrao: '{total} pessoas',
+  }),
+
+  'rotulos.ambienteQualquer': meta({
+    grupo: 'rotulos',
+    rotulo: 'Ambiente — sem preferência',
+    ajuda: 'Aparece na conferência quando o cliente escolheu "Tanto faz".',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Onde tiver lugar',
+  }),
+
+  'rotulos.status.pendente': meta({
+    grupo: 'rotulos',
+    rotulo: 'Status — pedido pendente',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'aguardando a casa',
+  }),
+
+  'rotulos.status.marcaPendente': meta({
+    grupo: 'rotulos',
+    rotulo: 'Marca — pendente',
+    ajuda: 'Vai grudada no fim da linha da reserva.',
     variaveis: [],
     multilinha: false,
-    padrao: 'quem estiver livre',
+    padrao: ' ⏳',
+  }),
+
+  'rotulos.status.marcaConfirmada': meta({
+    grupo: 'rotulos',
+    rotulo: 'Marca — cliente confirmou',
+    variaveis: [],
+    multilinha: false,
+    padrao: ' ✅',
+  }),
+
+  'rotulos.status.marcaChegou': meta({
+    grupo: 'rotulos',
+    rotulo: 'Marca — chegou',
+    variaveis: [],
+    multilinha: false,
+    padrao: ' 🟢',
+  }),
+
+  'rotulos.status.marcaFaltou': meta({
+    grupo: 'rotulos',
+    rotulo: 'Marca — faltou',
+    variaveis: [],
+    multilinha: false,
+    padrao: ' ❌',
+  }),
+
+  'rotulos.dono.pendentes': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — pedidos pendentes',
+    variaveis: ['total'],
+    limite: LINHA,
+    multilinha: false,
+    padrao: '⏳ Pedidos ({total})',
+  }),
+
+  'rotulos.dono.pendentesDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — pedidos, descrição',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Grupos grandes esperando você',
   }),
 
   'rotulos.dono.hoje': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — agenda de hoje',
+    rotulo: 'Dono — reservas de hoje',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Agenda de hoje',
+    padrao: 'Reservas de hoje',
   }),
 
   'rotulos.dono.amanha': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — agenda de amanhã',
+    rotulo: 'Dono — reservas de amanhã',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Agenda de amanhã',
+    padrao: 'Reservas de amanhã',
   }),
 
   'rotulos.dono.semana': meta({
@@ -1374,36 +1572,72 @@ export const TEXTOS = {
     padrao: 'Próximos 7 dias',
   }),
 
-  'rotulos.dono.bloquear': meta({
+  'rotulos.dono.chegadas': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — bloquear horário',
+    rotulo: 'Dono — marcar chegadas',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Bloquear horário',
+    padrao: 'Marcar chegadas',
+  }),
+
+  'rotulos.dono.chegadasDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — marcar chegadas, descrição',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Abre o painel da recepção',
+  }),
+
+  'rotulos.dono.relatorio': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — relatório',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Relatório',
+  }),
+
+  'rotulos.dono.relatorioDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — relatório, descrição',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Pessoas, comparecimento e faltas',
+  }),
+
+  'rotulos.dono.bloquear': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — fechar agenda',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Fechar agenda',
   }),
 
   'rotulos.dono.bloquearDesc': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — bloquear horário (descrição)',
+    rotulo: 'Dono — fechar agenda, descrição',
     variaveis: [],
     limite: DESCRICAO,
     multilinha: false,
-    padrao: 'Folga, imprevisto, feriado',
+    padrao: 'Feriado, evento, dia de folga',
   }),
 
   'rotulos.dono.pausar': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — pausar o bot',
+    rotulo: 'Dono — pausar bot',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Pausar o bot 1h',
+    padrao: 'Pausar o bot',
   }),
 
   'rotulos.dono.religar': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — religar o bot',
+    rotulo: 'Dono — religar bot',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
@@ -1412,11 +1646,11 @@ export const TEXTOS = {
 
   'rotulos.dono.retomarAgora': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — retomar agora',
+    rotulo: 'Dono — religar agora',
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Retomar agora',
+    padrao: 'Religar agora',
   }),
 
   'rotulos.dono.menu': meta({
@@ -1425,7 +1659,7 @@ export const TEXTOS = {
     variaveis: [],
     limite: BOTAO,
     multilinha: false,
-    padrao: 'Menu',
+    padrao: 'Menu do dono',
   }),
 
   'rotulos.dono.voltar': meta({
@@ -1439,110 +1673,247 @@ export const TEXTOS = {
 
   'rotulos.dono.voltarLista': meta({
     grupo: 'rotulos',
-    rotulo: 'Dono — voltar (linha de lista)',
+    rotulo: 'Dono — voltar (linha)',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: '← Voltar',
+    padrao: '↩️ Voltar',
   }),
 
-  'rotulos.dono.bloqHojeTarde': meta({
+  'rotulos.dono.aprovar': meta({
     grupo: 'rotulos',
-    rotulo: 'Bloqueio — hoje à tarde',
+    rotulo: 'Dono — aprovar pedido',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: '✅ Aprovar',
+  }),
+
+  'rotulos.dono.recusar': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — recusar pedido',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Recusar',
+  }),
+
+  'rotulos.dono.outrosPedidos': meta({
+    grupo: 'rotulos',
+    rotulo: 'Dono — outros pedidos',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Outros pedidos',
+  }),
+
+  'rotulos.dono.bloqHojeAlmoco': meta({
+    grupo: 'rotulos',
+    rotulo: 'Fechar — hoje, almoço',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Hoje à tarde',
+    padrao: 'Hoje, almoço',
   }),
 
-  'rotulos.dono.bloqHojeTardeDesc': meta({
+  'rotulos.dono.bloqHojeJantar': meta({
     grupo: 'rotulos',
-    rotulo: 'Bloqueio — hoje à tarde (descrição)',
-    ajuda: 'A hora vem de "whatsapp.owner.afternoonStartHour".',
-    variaveis: ['hora'],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'A partir das {hora}h',
-  }),
-
-  'rotulos.dono.bloqHojeNoite': meta({
-    grupo: 'rotulos',
-    rotulo: 'Bloqueio — hoje à noite',
+    rotulo: 'Fechar — hoje, jantar',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Hoje à noite',
-  }),
-
-  'rotulos.dono.bloqHojeNoiteDesc': meta({
-    grupo: 'rotulos',
-    rotulo: 'Bloqueio — hoje à noite (descrição)',
-    ajuda: 'A hora vem de "whatsapp.owner.eveningStartHour".',
-    variaveis: ['hora'],
-    limite: DESCRICAO,
-    multilinha: false,
-    padrao: 'A partir das {hora}h',
+    padrao: 'Hoje, jantar',
   }),
 
   'rotulos.dono.bloqHojeDia': meta({
     grupo: 'rotulos',
-    rotulo: 'Bloqueio — hoje o dia todo',
+    rotulo: 'Fechar — hoje inteiro',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Hoje o dia todo',
+    padrao: 'Hoje, o dia todo',
   }),
 
-  'rotulos.dono.bloqAmanhaManha': meta({
+  'rotulos.dono.bloqAmanhaAlmoco': meta({
     grupo: 'rotulos',
-    rotulo: 'Bloqueio — amanhã de manhã',
-    variaveis: [],
+    rotulo: 'Fechar — amanhã, almoço',
+    variaveis: ['data'],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Amanhã de manhã',
+    padrao: 'Amanhã ({data}), almoço',
   }),
 
-  'rotulos.dono.bloqAmanhaManhaDesc': meta({
+  'rotulos.dono.bloqAmanhaJantar': meta({
     grupo: 'rotulos',
-    rotulo: 'Bloqueio — amanhã de manhã (descrição)',
-    variaveis: ['data', 'hora'],
-    limite: DESCRICAO,
+    rotulo: 'Fechar — amanhã, jantar',
+    variaveis: ['data'],
+    limite: LINHA,
     multilinha: false,
-    padrao: '{data} até as {hora}h',
+    padrao: 'Amanhã ({data}), jantar',
   }),
 
   'rotulos.dono.bloqAmanhaDia': meta({
     grupo: 'rotulos',
-    rotulo: 'Bloqueio — amanhã o dia todo',
+    rotulo: 'Fechar — amanhã inteiro',
+    variaveis: ['data'],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Amanhã ({data}), tudo',
+  }),
+
+  'rotulos.dono.bloqAlmocoDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Fechar — almoço, descrição',
+    variaveis: ['de', 'ate'],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Das {de}h às {ate}h',
+  }),
+
+  'rotulos.dono.bloqJantarDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Fechar — jantar, descrição',
+    variaveis: ['hora'],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Das {hora}h até fechar',
+  }),
+
+  'rotulos.recepcao.hoje': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — reservas de hoje',
     variaveis: [],
     limite: LINHA,
     multilinha: false,
-    padrao: 'Amanhã o dia todo',
+    padrao: 'Reservas de hoje',
+  }),
+
+  'rotulos.recepcao.amanha': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — reservas de amanhã',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Reservas de amanhã',
+  }),
+
+  'rotulos.recepcao.chegadas': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — marcar chegada',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Marcar chegada',
+  }),
+
+  'rotulos.recepcao.chegadasDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — marcar chegada, descrição',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Quem chegou e quem faltou',
+  }),
+
+  'rotulos.recepcao.resumo': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — resumo',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: 'Resumo',
+  }),
+
+  'rotulos.recepcao.resumoDesc': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — resumo, descrição',
+    variaveis: [],
+    limite: DESCRICAO,
+    multilinha: false,
+    padrao: 'Hoje e ontem: pessoas e faltas',
+  }),
+
+  'rotulos.recepcao.marcar': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — botão marcar',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Marcar chegada',
+  }),
+
+  'rotulos.recepcao.chegou': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — chegou',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: '🟢 Chegou',
+  }),
+
+  'rotulos.recepcao.faltou': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — faltou',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: '❌ Faltou',
+  }),
+
+  'rotulos.recepcao.proxima': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — próxima',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Próxima',
+  }),
+
+  'rotulos.recepcao.menu': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — menu',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Menu',
+  }),
+
+  'rotulos.recepcao.voltar': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — voltar',
+    variaveis: [],
+    limite: BOTAO,
+    multilinha: false,
+    padrao: 'Voltar',
+  }),
+
+  'rotulos.recepcao.voltarLista': meta({
+    grupo: 'rotulos',
+    rotulo: 'Recepção — voltar (linha)',
+    variaveis: [],
+    limite: LINHA,
+    multilinha: false,
+    padrao: '↩️ Voltar',
   }),
 
   // -------------------------------------------------------------------------
-  // Templates da Meta
-  //
-  // ⚠️  Editar aqui NÃO muda o que a Meta envia. Estes textos são a referência
-  //     do que está cadastrado no WhatsApp Manager: servem para o estúdio gerar
-  //     o JSON de submissão e para a documentação. O envio real usa o template
-  //     aprovado, e só passa a valer o texto novo depois da reaprovação.
+  // Templates da Meta — o texto vale só depois de aprovado no WhatsApp Manager
   // -------------------------------------------------------------------------
 
   'template.lembrete24h.corpo': meta({
     grupo: 'templates',
     rotulo: 'lembrete_24h — corpo',
-    ajuda: 'Variáveis na ordem que o servidor envia: {{1}} nome, {{2}} marca, {{3}} serviço, {{4}} data e hora.',
+    ajuda: 'Variáveis na ordem que o servidor envia: {{1}} nome, {{2}} marca, {{3}} pessoas ("4 pessoas"), {{4}} data e hora.',
     variaveis: [],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      'Oi, {{1}}! Passando para lembrar do seu horário na {{2}} 💈',
+      'Oi, {{1}}! Passando para lembrar da sua reserva na {{2}} 🍽️',
       '',
-      '{{3}}',
+      '👥 {{3}}',
       '📅 {{4}}',
       '',
-      'Vai conseguir vir?',
+      'Vocês vêm?',
     ].join('\n'),
   }),
 
@@ -1553,20 +1924,24 @@ export const TEXTOS = {
     variaveis: [],
     limite: CORPO,
     multilinha: true,
-    padrao: ['{{1}}, seu horário na {{2}} é hoje às {{3}} ⏰', '', 'Te esperamos!'].join('\n'),
+    padrao: [
+      '{{1}}, sua mesa na {{2}} é hoje às {{3}} ⏰',
+      '',
+      'Te esperamos!',
+    ].join('\n'),
   }),
 
   'template.posAtendimento.corpo': meta({
     grupo: 'templates',
-    rotulo: 'pos_atendimento — corpo',
+    rotulo: 'pos_visita — corpo',
     ajuda: '{{1}} nome, {{2}} marca. Tem um botão de URL com o link de avaliação.',
     variaveis: [],
     limite: CORPO,
     multilinha: true,
     padrao: [
-      'Opa, {{1}}! Tudo certo com o corte? 💈',
+      'Oi, {{1}}! Obrigado por vir à {{2}} 🍷',
       '',
-      'Se curtiu, uma avaliação ajuda demais a {{2}} a aparecer para mais gente.',
+      'Se gostou, uma avaliação ajuda demais a gente a aparecer para mais gente.',
     ].join('\n'),
   }),
 
@@ -1578,9 +1953,9 @@ export const TEXTOS = {
     limite: CORPO,
     multilinha: true,
     padrao: [
-      '{{1}}, faz {{3}} dias que a gente não te vê aqui na {{2}} 💈',
+      '{{1}}, faz {{3}} dias que a gente não te vê aqui na {{2}} 🍝',
       '',
-      'Bora marcar um horário? É só responder esta mensagem.',
+      'Bora reservar uma mesa? É só responder esta mensagem.',
     ].join('\n'),
   }),
 
@@ -1594,7 +1969,7 @@ export const TEXTOS = {
     padrao: [
       'Parabéns, {{1}}! 🎉',
       '',
-      'A {{2}} deseja um ótimo dia. Passa aqui para comemorar com um corte novo!',
+      'A {{2}} deseja um ótimo dia. Que tal comemorar com a gente? Reserve sua mesa por aqui!',
     ].join('\n'),
   }),
 

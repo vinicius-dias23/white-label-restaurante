@@ -1,9 +1,9 @@
 {
-  "name": "@barbearia/shared",
+  "name": "@restaurante/shared",
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Base comum dos dois módulos: schema do barbearia.config.json e utilitários de cor, horário e WhatsApp.",
+  "description": "Base comum dos dois módulos: schema do restaurante.config.json e utilitários de cor, horário e WhatsApp.",
   "exports": {
     ".": "./src/index.ts",
     "./config": "./src/config/index.ts",

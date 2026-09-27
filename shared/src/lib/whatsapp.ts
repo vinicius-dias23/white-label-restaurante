@@ -1,5 +1,3 @@
-import type { Service } from '../config/types.js'
-
 const DEFAULT_COUNTRY_CODE = '55'
 
 /**
@@ -40,15 +38,17 @@ export function whatsappUrl(phone: string, message = ''): string {
   return message ? `${base}?text=${encodeURIComponent(message)}` : base
 }
 
-/** "Olá! Gostaria de agendar: Corte + Barba (R$ 75)." */
-export function serviceMessage(service: Service, brandName: string): string {
-  const price = service.price ? ` (${service.price})` : ''
-  return `Olá, ${brandName}! Gostaria de agendar: ${service.name}${price}.`
+/**
+ * Mensagem do botão flutuante e do hero. O bot reconhece "gostaria de
+ * reservar" e já abre o fluxo de reserva — mudar a frase aqui exige mudar lá.
+ */
+export function bookingMessage(brandName: string): string {
+  return `Olá, ${brandName}! Gostaria de reservar uma mesa.`
 }
 
-/** Mensagem genérica do botão flutuante e do hero. */
-export function bookingMessage(brandName: string): string {
-  return `Olá, ${brandName}! Gostaria de agendar um horário.`
+/** "Olá, Cantina! Gostaria de reservar uma mesa na Varanda." */
+export function areaMessage(areaName: string, brandName: string): string {
+  return `Olá, ${brandName}! Gostaria de reservar uma mesa na ${areaName}.`
 }
 
 /** Link `tel:` a partir de qualquer formatação de telefone. */

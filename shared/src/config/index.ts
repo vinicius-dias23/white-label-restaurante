@@ -1,8 +1,8 @@
 /**
- * Schema do `barbearia.config.json`: tipos, padrões e validação.
+ * Schema do `restaurante.config.json`: tipos, padrões e validação.
  *
  * Quem carrega o arquivo é cada módulo — o site importa o JSON da raiz no
- * build, a automação lê os `tenants/<slug>/barbearia.config.json` do disco.
+ * build, a automação lê os `tenants/<slug>/restaurante.config.json` do disco.
  * Os dois passam o resultado por `normalizeConfig` para chegar na mesma
  * `SiteConfig` completa.
  */

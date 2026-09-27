@@ -1,21 +1,21 @@
 {
-  "name": "white-label-barbearia",
+  "name": "white-label-restaurante",
   "private": true,
   "version": "2.0.0",
   "type": "module",
-  "description": "Landing page white-label de barbearia + automação de atendimento no WhatsApp, em dois módulos independentes.",
+  "description": "Landing page white-label de restaurante + reserva de mesas pelo WhatsApp, em dois módulos independentes.",
   "workspaces": [
     "shared",
     "site",
     "whatsapp"
   ],
   "scripts": {
-    "dev": "npm run dev -w @barbearia/site",
-    "build": "npm run build -w @barbearia/site",
-    "preview": "npm run preview -w @barbearia/site",
+    "dev": "npm run dev -w @restaurante/site",
+    "build": "npm run build -w @restaurante/site",
+    "preview": "npm run preview -w @restaurante/site",
 
-    "dev:whatsapp": "npm run dev -w @barbearia/whatsapp",
-    "start:whatsapp": "npm run start -w @barbearia/whatsapp",
+    "dev:whatsapp": "npm run dev -w @restaurante/whatsapp",
+    "start:whatsapp": "npm run start -w @restaurante/whatsapp",
 
     "deploy:check": "node deploy/verificar-tenants.mjs",
 
