@@ -26,7 +26,7 @@ async function main(): Promise<void> {
     // Healthcheck que realmente prova que o serviço funciona: sem banco, o bot
     // não atende ninguém, e responder 200 aqui só esconderia o problema.
     await pool.query('SELECT 1')
-    return { ok: true, servico: 'barbearia-whatsapp' }
+    return { ok: true, servico: 'restaurante-whatsapp' }
   })
 
   await registerWebhook(app)

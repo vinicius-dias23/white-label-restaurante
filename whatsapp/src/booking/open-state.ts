@@ -1,15 +1,15 @@
 import { DateTime } from 'luxon'
-import { DAY_LABELS, type WeeklyHours } from '@barbearia/shared/config'
-import { formatRanges } from '@barbearia/shared/lib/hours'
+import { DAY_LABELS, type WeeklyHours } from '@restaurante/shared/config'
+import { formatRanges } from '@restaurante/shared/lib/hours'
 import { windowsForDay } from './slots.js'
 
 /**
- * "Aberto agora" e "abre sexta às 09:00", no fuso da barbearia.
+ * "Aberto agora" e "abre sexta às 09:00", no fuso do restaurante.
  *
- * O site tem a mesma conta em `@barbearia/shared/lib/hours`, mas lá ela usa o relógio do
+ * O site tem a mesma conta em `@restaurante/shared/lib/hours`, mas lá ela usa o relógio do
  * navegador do visitante — que é o certo para quem está olhando a página. Aqui
  * o relógio é o do servidor, que pode estar em qualquer lugar do mundo, então a
- * conta precisa ser explicitamente no fuso da barbearia.
+ * conta precisa ser explicitamente no fuso do restaurante.
  */
 
 export interface OpenStateInZone {

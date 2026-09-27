@@ -17,8 +17,8 @@ const type = (text: string, screen: Screen = 'MENU', context: BotContext = {}) =
 
 describe('texto livre', () => {
   it('qualquer frase cai no menu, sem tentar adivinhar', () => {
-    expect(type('quero cortar o cabelo amanhã de tarde').screen).toBe('NAO_ENTENDI')
-    expect(type('vcs atendem sábado?').screen).toBe('NAO_ENTENDI')
+    expect(type('quero uma mesa pra 4 amanhã à noite').screen).toBe('NAO_ENTENDI')
+    expect(type('vcs abrem domingo?').screen).toBe('NAO_ENTENDI')
     expect(type('👍').screen).toBe('NAO_ENTENDI')
   })
 
@@ -26,15 +26,19 @@ describe('texto livre', () => {
     expect(type('menu').screen).toBe('MENU')
     expect(type('Oi').screen).toBe('MENU')
     expect(type('  BOM DIA  ').screen).toBe('MENU')
-    expect(type('agendar').screen).toBe('ESCOLHER_SERVICO')
+    expect(type('reservar').screen).toBe('ESCOLHER_PESSOAS')
+    expect(type('Cardápio').screen).toBe('CARDAPIO')
   })
 
   it('reconhece a mensagem que o próprio site monta', () => {
-    // É o texto que sai de bookingMessage/serviceMessage em @barbearia/shared/lib/whatsapp.
-    expect(type('Olá, Barbearia do Zé! Gostaria de agendar um horário.').screen).toBe('ESCOLHER_SERVICO')
-    expect(type('Olá, Barbearia do Zé! Gostaria de agendar: Corte + Barba (R$ 75).').screen).toBe(
-      'ESCOLHER_SERVICO',
-    )
+    // É o texto que sai de bookingMessage/areaMessage em @restaurante/shared/lib/whatsapp.
+    const geral = type('Olá, Cantina Bella Nonna! Gostaria de reservar uma mesa.')
+    expect(geral.screen).toBe('ESCOLHER_PESSOAS')
+    expect(geral.context.areaHint).toBeUndefined()
+
+    const varanda = type('Olá, Cantina Bella Nonna! Gostaria de reservar uma mesa na Varanda.')
+    expect(varanda.screen).toBe('ESCOLHER_PESSOAS')
+    expect(varanda.context.areaHint).toBe('Varanda')
   })
 
   it('trata o pedido de saída em qualquer grafia', () => {
@@ -44,54 +48,78 @@ describe('texto livre', () => {
   })
 
   it('não confunde "cancelar" no meio de uma frase com opt-out', () => {
-    // Cliente escrevendo "quero cancelar meu horário" não pode sair da lista.
-    expect(type('quero cancelar meu horário').screen).toBe('NAO_ENTENDI')
+    // Cliente escrevendo "quero cancelar minha reserva" não pode sair da lista.
+    expect(type('quero cancelar minha reserva').screen).toBe('NAO_ENTENDI')
   })
 })
 
-describe('fluxo de agendamento', () => {
+describe('fluxo de reserva', () => {
   it('vai do menu até a confirmação guardando cada escolha', () => {
-    let step = tap(ACTION.agendar)
-    expect(step.screen).toBe('ESCOLHER_SERVICO')
+    let step = tap(ACTION.reservar)
+    expect(step.screen).toBe('ESCOLHER_PESSOAS')
 
-    step = tap(`${ACTION.service}svc-1`, step.screen, step.context)
-    expect(step.screen).toBe('ESCOLHER_BARBEIRO')
-    expect(step.context.serviceId).toBe('svc-1')
+    step = tap(`${ACTION.party}4`, step.screen, step.context)
+    expect(step.screen).toBe('ESCOLHER_AMBIENTE')
+    expect(step.context.partySize).toBe(4)
 
-    step = tap(`${ACTION.barber}brb-1`, step.screen, step.context)
+    step = tap(`${ACTION.area}amb-1`, step.screen, step.context)
     expect(step.screen).toBe('ESCOLHER_DIA')
-    expect(step.context.barberId).toBe('brb-1')
+    expect(step.context.areaId).toBe('amb-1')
 
     step = tap(`${ACTION.day}2026-08-22`, step.screen, step.context)
     expect(step.screen).toBe('ESCOLHER_HORARIO')
     expect(step.context.day).toBe('2026-08-22')
 
-    step = tap(`${ACTION.time}2026-08-22T17:00:00.000Z`, step.screen, step.context)
+    step = tap(`${ACTION.time}2026-08-22T23:00:00.000Z`, step.screen, step.context)
     expect(step.screen).toBe('CONFIRMAR')
 
     step = tap(ACTION.confirm, step.screen, step.context)
-    expect(step.screen).toBe('AGENDADO')
-    // O contexto chega inteiro no efeito que reserva o horário.
+    expect(step.screen).toBe('RESERVADO')
+    // O contexto chega inteiro no efeito que reserva a mesa.
     expect(step.context).toMatchObject({
-      serviceId: 'svc-1',
-      barberId: 'brb-1',
+      partySize: 4,
+      areaId: 'amb-1',
       day: '2026-08-22',
-      slot: '2026-08-22T17:00:00.000Z',
+      slot: '2026-08-22T23:00:00.000Z',
     })
   })
 
-  it('"sem preferência" segue como qualquer outro barbeiro', () => {
-    const step = tap(ACTION.barberAny, 'ESCOLHER_BARBEIRO', { serviceId: 'svc-1' })
-    expect(step.screen).toBe('ESCOLHER_DIA')
-    expect(step.context.barberId).toBe('any')
+  it('"9 ou mais" pede o número digitado, e só essa tela aceita número', () => {
+    const step = tap(ACTION.partyMore, 'ESCOLHER_PESSOAS')
+    expect(step.screen).toBe('DIGITAR_PESSOAS')
+
+    const digitado = type('12 pessoas', step.screen, step.context)
+    expect(digitado.screen).toBe('ESCOLHER_AMBIENTE')
+    expect(digitado.context.partySize).toBe(12)
+
+    // Fora dessa tela, número é texto livre como qualquer outro.
+    expect(type('12').screen).toBe('NAO_ENTENDI')
   })
 
-  it('"trocar horário" volta para os dias sem perder o serviço', () => {
-    const context = { serviceId: 'svc-1', barberId: 'brb-1', day: '2026-08-22', slot: 'x' }
+  it('texto que não é número na tela de digitar pergunta de novo', () => {
+    expect(type('uns doze', 'DIGITAR_PESSOAS').screen).toBe('DIGITAR_PESSOAS')
+    // Mas "menu" continua sendo a saída de emergência.
+    expect(type('menu', 'DIGITAR_PESSOAS').screen).toBe('MENU')
+  })
+
+  it('a dica de ambiente do site sobrevive até a escolha do grupo', () => {
+    const site = type('Olá! Gostaria de reservar uma mesa na Varanda.')
+    const step = tap(`${ACTION.party}2`, site.screen, site.context)
+    expect(step.context).toMatchObject({ partySize: 2, areaHint: 'Varanda' })
+  })
+
+  it('"sem preferência" de ambiente segue como qualquer outro', () => {
+    const step = tap(ACTION.areaAny, 'ESCOLHER_AMBIENTE', { partySize: 2 })
+    expect(step.screen).toBe('ESCOLHER_DIA')
+    expect(step.context.areaId).toBe('any')
+  })
+
+  it('"trocar horário" volta para os dias sem perder o grupo e o ambiente', () => {
+    const context = { partySize: 4, areaId: 'amb-1', day: '2026-08-22', slot: 'x' }
     const step = tap(ACTION.changeTime, 'CONFIRMAR', context)
 
     expect(step.screen).toBe('ESCOLHER_DIA')
-    expect(step.context.serviceId).toBe('svc-1')
+    expect(step.context).toMatchObject({ partySize: 4, areaId: 'amb-1' })
     expect(step.context.slot).toBeUndefined()
   })
 
@@ -101,47 +129,48 @@ describe('fluxo de agendamento', () => {
   })
 
   it('cancelar no meio do fluxo limpa tudo e volta ao menu', () => {
-    const step = tap(ACTION.abort, 'CONFIRMAR', { serviceId: 'svc-1', slot: 'x' })
+    const step = tap(ACTION.abort, 'CONFIRMAR', { partySize: 4, slot: 'x' })
     expect(step.screen).toBe('MENU')
     expect(step.context).toEqual({})
   })
 })
 
-describe('meus agendamentos', () => {
-  it('abre as ações do agendamento escolhido', () => {
-    const step = tap(`${ACTION.appointment}apt-9`, 'MEUS_AGENDAMENTOS')
-    expect(step.screen).toBe('ACOES_AGENDAMENTO')
-    expect(step.context.appointmentId).toBe('apt-9')
+describe('minhas reservas', () => {
+  it('abre as ações da reserva escolhida', () => {
+    const step = tap(`${ACTION.reservation}res-9`, 'MINHAS_RESERVAS')
+    expect(step.screen).toBe('ACOES_RESERVA')
+    expect(step.context.reservationId).toBe('res-9')
   })
 
   it('cancelamento sempre passa por uma confirmação', () => {
-    const step = tap(`${ACTION.cancel}apt-9`, 'ACOES_AGENDAMENTO')
+    const step = tap(`${ACTION.cancel}res-9`, 'ACOES_RESERVA')
     expect(step.screen).toBe('CONFIRMAR_CANCELAMENTO')
+    expect(step.context.reservationId).toBe('res-9')
 
-    expect(tap(ACTION.cancelNo, step.screen, step.context).screen).toBe('MEUS_AGENDAMENTOS')
-    expect(tap(`${ACTION.cancelYes}apt-9`, step.screen, step.context).screen).toBe('CANCELADO')
+    expect(tap(ACTION.cancelNo, step.screen, step.context).screen).toBe('MINHAS_RESERVAS')
+    expect(tap(`${ACTION.cancelYes}res-9`, step.screen, step.context).screen).toBe('CANCELADO')
   })
 
-  it('remarcar recomeça o fluxo lembrando qual horário será substituído', () => {
-    const step = tap(`${ACTION.reschedule}apt-9`, 'ACOES_AGENDAMENTO')
-    expect(step.screen).toBe('ESCOLHER_SERVICO')
-    expect(step.context.appointmentId).toBe('apt-9')
+  it('remarcar recomeça o fluxo lembrando qual reserva será substituída', () => {
+    const step = tap(`${ACTION.reschedule}res-9`, 'ACOES_RESERVA')
+    expect(step.screen).toBe('ESCOLHER_PESSOAS')
+    expect(step.context.reservationId).toBe('res-9')
     expect(step.context.slot).toBeUndefined()
   })
 })
 
 describe('botões do lembrete (template)', () => {
-  it('confirma a presença do agendamento certo', () => {
+  it('confirma a presença da reserva certa', () => {
     // A resposta a um template não traz contexto nenhum: o ID vem no payload.
-    const step = tap(`${ACTION.presencaOk}apt-42`, 'MENU')
+    const step = tap(`${ACTION.presencaOk}res-42`, 'MENU')
     expect(step.screen).toBe('PRESENCA_CONFIRMADA')
-    expect(step.context.appointmentId).toBe('apt-42')
+    expect(step.context.reservationId).toBe('res-42')
   })
 
-  it('cancelar pelo lembrete cai direto na confirmação daquele horário', () => {
-    const step = tap(`${ACTION.presencaCancel}apt-42`, 'MENU')
+  it('cancelar pelo lembrete cai direto na confirmação daquela reserva', () => {
+    const step = tap(`${ACTION.presencaCancel}res-42`, 'MENU')
     expect(step.screen).toBe('CONFIRMAR_CANCELAMENTO')
-    expect(step.context.appointmentId).toBe('apt-42')
+    expect(step.context.reservationId).toBe('res-42')
   })
 })
 

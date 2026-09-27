@@ -1,9 +1,10 @@
 import {
-  cancelAppointment,
+  cancelReservation,
   confirmAttendance,
-  findAppointment,
+  findReservation,
   listUpcomingByContact,
-} from '../db/repositories/appointments.js'
+  type ReservationDetail,
+} from '../db/repositories/reservations.js'
 import {
   isWithinServiceWindow,
   setMarketingOptIn,
@@ -18,23 +19,25 @@ import {
   startHandoff,
 } from '../db/repositories/conversations.js'
 import { countRecentInbound, logOutbound, registerInbound } from '../db/repositories/messages.js'
-import { cancelPendingForAppointment } from '../db/repositories/outbox.js'
-import { ANY_BARBER, availability, book, canCancel, slotsForDate } from '../booking/book.js'
+import { cancelPendingForReservation } from '../db/repositories/outbox.js'
+import { ANY_AREA, areasForParty, availability, book, canCancel, needsApproval, slotsForDate } from '../booking/book.js'
 import { env } from '../env.js'
 import { errorMessage, log } from '../lib/logger.js'
 import { avisoAtendente } from '../scheduler/messages.js'
 import {
   notifyOwner,
+  notifyOwnerApprovalRequest,
   notifyOwnerCancellation,
-  notifyOwnerNewAppointment,
-  scheduleAppointmentMessages,
+  notifyOwnerNewReservation,
+  scheduleReservationMessages,
 } from '../scheduler/schedule.js'
 import type { TenantContext } from '../tenants/registry.js'
+import type { AreaRecord } from '../tenants/types.js'
 import { sendWithRetry } from '../whatsapp/client.js'
 import type { NormalizedInbound } from '../whatsapp/types.js'
 import type { OutgoingMessage } from '../whatsapp/payloads.js'
 import { ACTION, decide, isSessionExpired, type BotContext, type Screen } from './machine.js'
-import { findBarber, handleBarberMessage } from './barber.js'
+import { findStaff, handleStaffMessage, STAFF_ACTION } from './recepcao.js'
 import { botPausedNotice, handleOwnerMessage, isBotPaused, isOwner } from './owner.js'
 import * as screens from './screens.js'
 import { makeT } from './textos.js'
@@ -77,27 +80,30 @@ export async function handleInbound(ctx: TenantContext, inbound: NormalizedInbou
 
   await ctx.client.markRead(inbound.messageId)
 
-  // O dono tem um menu próprio.
+  // O dono tem um menu próprio. Os botões da recepção também chegam a ele:
+  // em restaurante pequeno quem recebe o cliente na porta é o próprio dono, e o
+  // menu dele tem o atalho para marcar chegadas.
   if (isOwner(tenant, inbound.from)) {
+    if (inbound.action?.startsWith(STAFF_ACTION.prefix)) {
+      await handleStaffMessage(ctx, contact, { name: 'Dono', isOwner: true }, inbound, now)
+      return
+    }
     await handleOwnerMessage(ctx, contact, inbound, now)
     return
   }
 
-  // O barbeiro também — a agenda dele, os cortes dele, a folga dele.
+  // A recepção também — as reservas do dia, quem chegou, quem faltou.
   //
-  // Depois do dono de propósito: na barbearia pequena o dono também corta, e o
-  // mesmo número está nos dois lugares. Quem é os dois vê o painel completo.
-  //
-  // E ANTES da pausa do bot: a pausa é para calar o atendimento automático dos
-  // clientes. Calar o barbeiro junto tiraria a agenda dele da mão exatamente
-  // quando o dono pausou tudo para resolver alguma coisa.
-  const barber = findBarber(ctx, inbound.from)
-  if (barber) {
-    await handleBarberMessage(ctx, contact, barber, inbound, now)
+  // ANTES da pausa do bot de propósito: a pausa é para calar o atendimento
+  // automático dos clientes. Calar a recepção junto tiraria a lista da noite da
+  // mão dela exatamente quando o dono pausou tudo para resolver alguma coisa.
+  const staff = findStaff(ctx, inbound.from)
+  if (staff) {
+    await handleStaffMessage(ctx, contact, { name: staff.name, isOwner: false }, inbound, now)
     return
   }
 
-  // O dono pausou o atendimento automático da barbearia inteira.
+  // O dono pausou o atendimento automático do restaurante inteiro.
   if (isBotPaused(tenant, now)) {
     // Avisa uma vez só: quem manda cinco mensagens seguidas não recebe cinco
     // respostas automáticas dizendo a mesma coisa.
@@ -147,9 +153,10 @@ interface Rendered {
 /**
  * Monta a tela e executa o efeito que ela representa.
  *
- * Algumas telas mudam de ideia no meio: "AGENDADO" vira "HORARIO_OCUPADO" se a
- * reserva não passar, e "ESCOLHER_BARBEIRO" é pulada quando só tem um barbeiro.
- * Por isso o retorno traz a tela final, e não a que foi pedida.
+ * Algumas telas mudam de ideia no meio: "RESERVADO" vira "HORARIO_OCUPADO" se o
+ * ambiente encher, ou "AGUARDANDO_APROVACAO" se o grupo for grande; e
+ * "ESCOLHER_AMBIENTE" é pulada quando só um ambiente serve. Por isso o retorno
+ * traz a tela final, e não a que foi pedida.
  */
 async function renderScreen(
   ctx: TenantContext,
@@ -160,7 +167,7 @@ async function renderScreen(
 ): Promise<Rendered> {
   const { tenant } = ctx
   const to = contact.waId
-  // Os textos desta barbearia, montados uma vez por resposta.
+  // Os textos deste restaurante, montados uma vez por resposta.
   const t = makeT(tenant.config)
   const done = (message: OutgoingMessage, finalScreen = screen, finalContext = context): Rendered => ({
     screen: finalScreen,
@@ -175,8 +182,8 @@ async function renderScreen(
     case 'NAO_ENTENDI':
       return done(screens.naoEntendiScreen(to, tenant), 'MENU')
 
-    case 'SERVICOS':
-      return done(screens.servicosScreen(to, tenant, ctx.services))
+    case 'CARDAPIO':
+      return done(screens.cardapioScreen(to, tenant))
 
     case 'HORARIOS':
       return done(screens.horariosScreen(to, tenant, now))
@@ -209,35 +216,56 @@ async function renderScreen(
       await setMarketingOptIn(contact.id, true)
       return done(screens.optInScreen(to, t, tenant.config.brand.name))
 
-    // --- Agendamento -------------------------------------------------------
+    // --- Reserva -----------------------------------------------------------
 
-    case 'ESCOLHER_SERVICO': {
-      if (ctx.services.length === 0) return done(screens.semHorarioScreen(to, t), 'SEM_HORARIO')
-      // Barbearia com um serviço só: perguntar "qual?" seria toque à toa.
-      if (ctx.services.length === 1) {
-        const only = ctx.services[0]!
-        return renderScreen(ctx, contact, 'ESCOLHER_BARBEIRO', { ...context, serviceId: only.id }, now)
+    case 'ESCOLHER_PESSOAS':
+      if (ctx.areas.length === 0) return done(screens.semHorarioScreen(to, t), 'SEM_HORARIO')
+      return done(screens.escolherPessoasScreen(to, t, tenant.config.booking.maxPartySize))
+
+    case 'DIGITAR_PESSOAS':
+      return done(screens.digitarPessoasScreen(to, t, tenant.config.booking.maxPartySize))
+
+    case 'ESCOLHER_AMBIENTE': {
+      const partySize = context.partySize
+      if (!partySize || partySize < 1) return renderScreen(ctx, contact, 'ESCOLHER_PESSOAS', context, now)
+
+      // Grupo acima do que o bot aceita, ou maior que qualquer ambiente: é
+      // conversa para gente, não para botão.
+      const areas = areasForParty(ctx, partySize)
+      if (partySize > tenant.config.booking.maxPartySize || areas.length === 0) {
+        return done(screens.grupoGrandeScreen(to, t, partySize), 'GRUPO_GRANDE', {
+          reservationId: context.reservationId,
+        })
       }
-      return done(screens.escolherServicoScreen(to, t, ctx.services))
-    }
 
-    case 'ESCOLHER_BARBEIRO': {
-      const service = findServiceOrNull(ctx, context.serviceId)
-      if (!service) return restart(ctx, contact, now)
-
-      // Um barbeiro só: também não faz sentido perguntar.
-      if (ctx.barbers.length <= 1) {
-        const barberId = ctx.barbers[0]?.id ?? ANY_BARBER
-        return renderScreen(ctx, contact, 'ESCOLHER_DIA', { ...context, barberId, dayOffset: 0 }, now)
+      // Veio do botão "Reservar aqui" de um ambiente no site.
+      const hinted = context.areaHint ? matchArea(areas, context.areaHint) : null
+      // Um ambiente só serve: perguntar "onde?" seria toque à toa.
+      const only = areas.length === 1 ? areas[0]! : null
+      const chosen = hinted ?? only
+      if (chosen) {
+        return renderScreen(
+          ctx,
+          contact,
+          'ESCOLHER_DIA',
+          { ...context, areaHint: undefined, areaId: chosen.id, dayOffset: 0 },
+          now,
+        )
       }
-      return done(screens.escolherBarbeiroScreen(to, t, ctx.barbers, service.name))
+
+      const descriptions = Object.fromEntries(
+        tenant.config.areas.map((area) => [area.name, area.description]),
+      )
+      return done(screens.escolherAmbienteScreen(to, t, areas, descriptions, partySize), 'ESCOLHER_AMBIENTE', {
+        ...context,
+        areaHint: undefined,
+      })
     }
 
     case 'ESCOLHER_DIA': {
-      const service = findServiceOrNull(ctx, context.serviceId)
-      if (!service) return restart(ctx, contact, now)
+      if (!context.partySize) return restart(ctx, contact, now)
 
-      const days = await availability(ctx, service, context.barberId ?? ANY_BARBER, now)
+      const days = await availability(ctx, context.partySize, context.areaId ?? ANY_AREA, now)
       if (days.length === 0) return done(screens.semHorarioScreen(to, t), 'SEM_HORARIO')
 
       const options = days.map((day) => ({ day: day.day, date: day.slots[0]! }))
@@ -248,10 +276,9 @@ async function renderScreen(
     }
 
     case 'ESCOLHER_HORARIO': {
-      const service = findServiceOrNull(ctx, context.serviceId)
-      if (!service || !context.day) return restart(ctx, contact, now)
+      if (!context.partySize || !context.day) return restart(ctx, contact, now)
 
-      const slots = await slotsForDate(ctx, service, context.barberId ?? ANY_BARBER, context.day, now)
+      const slots = await slotsForDate(ctx, context.partySize, context.areaId ?? ANY_AREA, context.day, now)
 
       // O dia lotou entre a montagem da lista e o toque do cliente.
       if (slots.length === 0) {
@@ -272,40 +299,37 @@ async function renderScreen(
     }
 
     case 'CONFIRMAR': {
-      const service = findServiceOrNull(ctx, context.serviceId)
-      if (!service || !context.slot) return restart(ctx, contact, now)
+      if (!context.partySize || !context.slot) return restart(ctx, contact, now)
 
-      const barber = ctx.barbers.find((entry) => entry.id === context.barberId)
+      const area = ctx.areas.find((entry) => entry.id === context.areaId)
       return done(
         screens.confirmarScreen(
           to,
           t,
           {
-            serviceName: service.name,
-            priceLabel: service.priceLabel,
-            durationMin: service.durationMin,
-            barberName: barber?.name ?? t('rotulos.barbeiroQualquer'),
+            partySize: context.partySize,
+            areaName: area?.name ?? t('rotulos.ambienteQualquer'),
             slot: new Date(context.slot),
           },
           tenant.timezone,
+          needsApproval(ctx, context.partySize),
           now,
         ),
       )
     }
 
-    case 'AGENDADO': {
-      const service = findServiceOrNull(ctx, context.serviceId)
-      if (!service || !context.slot) return restart(ctx, contact, now)
+    case 'RESERVADO': {
+      if (!context.partySize || !context.slot) return restart(ctx, contact, now)
 
-      // Remarcar = cancelar o antigo e marcar o novo. O antigo só sai depois que
-      // o novo entra, para o cliente nunca ficar sem horário nenhum por um erro.
-      const previousId = context.appointmentId
+      // Remarcar = cancelar a antiga e reservar a nova. A antiga só sai depois
+      // que a nova entra, para o cliente nunca ficar sem mesa por um erro.
+      const previousId = context.reservationId
 
       const result = await book(
         ctx,
         contact,
-        service,
-        context.barberId ?? ANY_BARBER,
+        context.partySize,
+        context.areaId ?? ANY_AREA,
         new Date(context.slot),
         now,
       )
@@ -313,8 +337,8 @@ async function renderScreen(
       if (!result.ok) {
         if (result.reason === 'limite') {
           return done(
-            screens.limiteAgendamentosScreen(to, t, tenant.config.booking.maxPerContact),
-            'LIMITE_AGENDAMENTOS',
+            screens.limiteReservasScreen(to, t, tenant.config.booking.maxPerContact),
+            'LIMITE_RESERVAS',
             {},
           )
         }
@@ -328,102 +352,81 @@ async function renderScreen(
 
       const data = {
         contactName: contact.name,
-        serviceName: service.name,
-        barberName: result.barber.name,
-        startsAt: result.appointment.startsAt,
-        appointmentId: result.appointment.id,
+        contactWaId: contact.waId,
+        partySize: result.reservation.partySize,
+        areaName: result.area.name,
+        startsAt: result.reservation.startsAt,
+        reservationId: result.reservation.id,
       }
-
-      await scheduleAppointmentMessages(tenant, contact, data, now)
-      await notifyOwnerNewAppointment(tenant, data)
-
-      return done(
-        screens.agendadoScreen(
-          to,
-          {
-            serviceName: service.name,
-            priceLabel: service.priceLabel,
-            durationMin: service.durationMin,
-            barberName: result.barber.name,
-            slot: result.appointment.startsAt,
-          },
-          tenant,
-          now,
-        ),
-        'AGENDADO',
-        {},
-      )
-    }
-
-    // --- Agendamentos do cliente -------------------------------------------
-
-    case 'MEUS_AGENDAMENTOS': {
-      const appointments = await listUpcomingByContact(contact.id, now)
-      return done(
-        screens.meusAgendamentosScreen(
-          to,
-          t,
-          appointments.map((appointment) => ({
-            id: appointment.id,
-            serviceName: appointment.serviceName,
-            barberName: appointment.barberName,
-            startsAt: appointment.startsAt,
-          })),
-          tenant.timezone,
-          now,
-        ),
-      )
-    }
-
-    case 'ACOES_AGENDAMENTO':
-    case 'CONFIRMAR_CANCELAMENTO': {
-      const appointment = context.appointmentId ? await findAppointment(context.appointmentId) : null
-      if (!appointment || appointment.contactId !== contact.id) {
-        return renderScreen(ctx, contact, 'MEUS_AGENDAMENTOS', {}, now)
-      }
-
       const summary = {
-        id: appointment.id,
-        serviceName: appointment.serviceName,
-        barberName: appointment.barberName,
-        startsAt: appointment.startsAt,
+        partySize: result.reservation.partySize,
+        areaName: result.area.name,
+        slot: result.reservation.startsAt,
       }
 
-      if (screen === 'ACOES_AGENDAMENTO') {
-        return done(screens.acoesAgendamentoScreen(to, t, summary, tenant.timezone, now))
+      // Pedido de grupo grande: os lugares já estão seguros, mas os lembretes
+      // só entram quando o dono aprovar — lembrar de uma reserva que pode ser
+      // recusada seria prometer o que ninguém confirmou.
+      if (result.pending) {
+        await notifyOwnerApprovalRequest(tenant, data)
+        return done(screens.aguardandoAprovacaoScreen(to, summary, tenant, now), 'AGUARDANDO_APROVACAO', {})
+      }
+
+      await scheduleReservationMessages(tenant, contact, data, now)
+      await notifyOwnerNewReservation(tenant, data)
+
+      return done(screens.reservadoScreen(to, summary, tenant, now), 'RESERVADO', {})
+    }
+
+    // --- Reservas do cliente -----------------------------------------------
+
+    case 'MINHAS_RESERVAS': {
+      const reservations = await listUpcomingByContact(contact.id, now)
+      return done(
+        screens.minhasReservasScreen(to, t, reservations.map(toSummary), tenant.timezone, now),
+      )
+    }
+
+    case 'ACOES_RESERVA':
+    case 'CONFIRMAR_CANCELAMENTO': {
+      const reservation = context.reservationId ? await findReservation(context.reservationId) : null
+      if (!reservation || reservation.contactId !== contact.id) {
+        return renderScreen(ctx, contact, 'MINHAS_RESERVAS', {}, now)
+      }
+
+      const summary = toSummary(reservation)
+
+      if (screen === 'ACOES_RESERVA') {
+        return done(screens.acoesReservaScreen(to, t, summary, tenant.timezone, now))
       }
 
       const deadline = tenant.config.booking.cancelDeadlineHours
-      if (!canCancel(appointment.startsAt, deadline, now)) {
+      // Pedido ainda pendente pode ser retirado a qualquer hora: ele nem foi
+      // aprovado, não tem mesa preparada esperando ninguém.
+      if (reservation.status !== 'pending' && !canCancel(reservation.startsAt, deadline, now)) {
         return done(screens.cancelamentoTardeScreen(to, t, deadline), 'CANCELAMENTO_TARDE')
       }
       return done(screens.confirmarCancelamentoScreen(to, t, summary, tenant.timezone, now))
     }
 
     case 'CANCELADO': {
-      if (!context.appointmentId) return renderScreen(ctx, contact, 'MEUS_AGENDAMENTOS', {}, now)
+      if (!context.reservationId) return renderScreen(ctx, contact, 'MINHAS_RESERVAS', {}, now)
 
-      const appointment = await findAppointment(context.appointmentId)
-      if (!appointment || appointment.contactId !== contact.id) {
-        return renderScreen(ctx, contact, 'MEUS_AGENDAMENTOS', {}, now)
+      const reservation = await findReservation(context.reservationId)
+      if (!reservation || reservation.contactId !== contact.id) {
+        return renderScreen(ctx, contact, 'MINHAS_RESERVAS', {}, now)
       }
 
-      const cancelled = await cancelAppointment(context.appointmentId, 'cancelado pelo cliente')
+      const cancelled = await cancelReservation(context.reservationId, 'cancelada pelo cliente')
       if (cancelled) {
-        await cancelPendingForAppointment(cancelled.id)
-        await notifyOwnerCancellation(tenant, {
-          contactName: contact.name,
-          serviceName: cancelled.serviceName,
-          barberName: cancelled.barberName,
-          startsAt: cancelled.startsAt,
-          appointmentId: cancelled.id,
-        })
+        await cancelPendingForReservation(cancelled.id)
+        await notifyOwnerCancellation(tenant, messageData(cancelled))
       }
       return done(screens.canceladoScreen(to, t), 'CANCELADO', {})
     }
 
     case 'PRESENCA_CONFIRMADA': {
-      if (context.appointmentId) await confirmAttendance(context.appointmentId)
+      if (context.reservationId) await confirmAttendance(context.reservationId)
       return done(screens.presencaConfirmadaScreen(to, t), 'PRESENCA_CONFIRMADA', {})
     }
 
@@ -435,8 +438,14 @@ async function renderScreen(
     case 'HORARIO_OCUPADO':
       return done(screens.horarioOcupadoScreen(to, t))
 
-    case 'LIMITE_AGENDAMENTOS':
-      return done(screens.limiteAgendamentosScreen(to, t, tenant.config.booking.maxPerContact))
+    case 'LIMITE_RESERVAS':
+      return done(screens.limiteReservasScreen(to, t, tenant.config.booking.maxPerContact))
+
+    case 'GRUPO_GRANDE':
+      return done(screens.grupoGrandeScreen(to, t, context.partySize ?? tenant.config.booking.maxPartySize))
+
+    case 'AGUARDANDO_APROVACAO':
+      return done(screens.menuScreen(to, tenant), 'MENU', {})
 
     case 'CANCELAMENTO_TARDE':
       return done(screens.cancelamentoTardeScreen(to, t, tenant.config.booking.cancelDeadlineHours))
@@ -446,28 +455,46 @@ async function renderScreen(
   }
 }
 
-function findServiceOrNull(ctx: TenantContext, serviceId: string | undefined) {
-  if (!serviceId) return null
-  return ctx.services.find((service) => service.id === serviceId) ?? null
+/** "varanda" do site casa com o ambiente "Varanda", sem acento nem caixa. */
+function matchArea(areas: AreaRecord[], hint: string): AreaRecord | null {
+  const clean = (text: string) =>
+    text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+  const wanted = clean(hint)
+  return areas.find((area) => clean(area.name) === wanted) ?? null
 }
 
-/** Contexto perdido (deploy no meio da conversa, serviço removido): volta ao menu. */
+function toSummary(reservation: ReservationDetail): screens.ReservationSummary {
+  return {
+    id: reservation.id,
+    partySize: reservation.partySize,
+    areaName: reservation.areaName,
+    startsAt: reservation.startsAt,
+    pending: reservation.status === 'pending',
+  }
+}
+
+function messageData(reservation: ReservationDetail) {
+  return {
+    contactName: reservation.contactName,
+    contactWaId: reservation.contactWaId,
+    partySize: reservation.partySize,
+    areaName: reservation.areaName,
+    startsAt: reservation.startsAt,
+    reservationId: reservation.id,
+  }
+}
+
+/** Contexto perdido (deploy no meio da conversa, ambiente removido): volta ao menu. */
 async function restart(ctx: TenantContext, contact: Contact, now: Date): Promise<Rendered> {
   return renderScreen(ctx, contact, 'MENU', {}, now)
 }
 
-async function cancelPrevious(ctx: TenantContext, appointmentId: string, now: Date): Promise<void> {
-  const cancelled = await cancelAppointment(appointmentId, 'remarcado pelo cliente')
+async function cancelPrevious(ctx: TenantContext, reservationId: string, now: Date): Promise<void> {
+  const cancelled = await cancelReservation(reservationId, 'remarcada pelo cliente')
   if (!cancelled) return
-  await cancelPendingForAppointment(cancelled.id)
-  await notifyOwnerCancellation(ctx.tenant, {
-    contactName: cancelled.contactName,
-    serviceName: cancelled.serviceName,
-    barberName: cancelled.barberName,
-    startsAt: cancelled.startsAt,
-    appointmentId: cancelled.id,
-  })
-  log.info('agendamento anterior cancelado ao remarcar', { appointmentId, at: now.toISOString() })
+  await cancelPendingForReservation(cancelled.id)
+  await notifyOwnerCancellation(ctx.tenant, messageData(cancelled))
+  log.info('reserva anterior cancelada ao remarcar', { reservationId, at: now.toISOString() })
 }
 
 /**

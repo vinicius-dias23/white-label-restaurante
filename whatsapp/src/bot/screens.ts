@@ -1,11 +1,10 @@
-import { DAY_KEYS, DAY_LABELS, type SiteConfig } from '@barbearia/shared/config'
-import { formatRanges } from '@barbearia/shared/lib/hours'
-import { mapsUrl } from '@barbearia/shared/lib/whatsapp'
-import { formatDuration } from '../booking/duration.js'
+import { DAY_KEYS, DAY_LABELS, type MenuItem, type SiteConfig } from '@restaurante/shared/config'
+import { formatRanges } from '@restaurante/shared/lib/hours'
+import { mapsUrl } from '@restaurante/shared/lib/whatsapp'
 import { openStateInZone } from '../booking/open-state.js'
 import { groupByPeriod, PERIOD_LABELS, type Period } from '../booking/slots.js'
 import { formatDateTime, formatDayLabel, formatDayShort, formatTime } from '../lib/datetime.js'
-import type { Barber, ServiceRecord, Tenant } from '../tenants/types.js'
+import type { AreaRecord, Tenant } from '../tenants/types.js'
 import {
   buttonMessage,
   listMessage,
@@ -25,16 +24,19 @@ import { makeT, type T } from './textos.js'
  * costuma quebrar em produção, com o cliente olhando.
  *
  * Nenhuma frase mora aqui: todo texto vem do catálogo (`config/textos.ts`) pelo
- * `t()`, e a barbearia sobrescreve o que quiser em `whatsapp.textos`. O que
+ * `t()`, e o restaurante sobrescreve o que quiser em `whatsapp.textos`. O que
  * sobra nestas funções é a montagem do payload e as regras de quando cada
  * pedaço aparece.
  *
- * Por isso toda tela recebe o `t` da barbearia — inclusive as que não usam mais
- * nenhum outro dado dela.
+ * Por isso toda tela recebe o `t` do restaurante — inclusive as que não usam
+ * mais nenhum outro dado dele.
  */
 
 /** Quantas linhas sobram para conteúdo depois de reservar a de "voltar ao menu". */
 const ROWS_WITH_BACK = 9
+
+/** Na lista "Quantas pessoas?", até quantos números aparecem antes do "ou mais". */
+const PARTY_ROWS = 8
 
 const backRow = (t: T): ListRow => ({ id: ACTION.menu, title: t('rotulos.linha.voltarMenu') })
 
@@ -43,6 +45,11 @@ const tenantT = (tenant: Tenant): T => makeT(tenant.config)
 
 function greeting(t: T, config: SiteConfig): string {
   return t('cliente.menu.saudacao', { marca: config.brand.name })
+}
+
+/** "1 pessoa", "4 pessoas". */
+export function pessoas(t: T, total: number): string {
+  return total === 1 ? t('rotulos.pessoa.uma') : t('rotulos.pessoa.varias', { total })
 }
 
 // ---------------------------------------------------------------------------
@@ -55,18 +62,21 @@ export function menuScreen(to: string, tenant: Tenant, prefix = ''): OutgoingMes
 
   const rows: ListRow[] = [
     {
-      id: ACTION.agendar,
-      title: t('rotulos.menu.agendar'),
-      description: t('rotulos.menu.agendarDesc'),
+      id: ACTION.reservar,
+      title: t('rotulos.menu.reservar'),
+      description: t('rotulos.menu.reservarDesc'),
     },
-    { id: ACTION.meus, title: t('rotulos.menu.meus'), description: t('rotulos.menu.meusDesc') },
-    {
-      id: ACTION.servicos,
-      title: t('rotulos.menu.servicos'),
-      description: t('rotulos.menu.servicosDesc'),
-    },
-    { id: ACTION.horarios, title: t('rotulos.menu.horarios') },
+    { id: ACTION.minhas, title: t('rotulos.menu.minhas'), description: t('rotulos.menu.minhasDesc') },
   ]
+
+  if (config.menu.items.length > 0 || config.menu.url) {
+    rows.push({
+      id: ACTION.cardapio,
+      title: t('rotulos.menu.cardapio'),
+      description: t('rotulos.menu.cardapioDesc'),
+    })
+  }
+  rows.push({ id: ACTION.horarios, title: t('rotulos.menu.horarios') })
 
   if (config.contact.address) {
     rows.push({
@@ -104,18 +114,52 @@ export function naoEntendiScreen(to: string, tenant: Tenant): OutgoingMessage {
 // Telas informativas
 // ---------------------------------------------------------------------------
 
-export function servicosScreen(to: string, tenant: Tenant, services: ServiceRecord[]): OutgoingMessage {
-  const t = tenantT(tenant)
+/** Pratos agrupados pela categoria, na ordem em que cada categoria aparece. */
+function byCategory(items: MenuItem[]): [string, MenuItem[]][] {
+  const groups = new Map<string, MenuItem[]>()
+  for (const item of items) {
+    const list = groups.get(item.category) ?? []
+    list.push(item)
+    groups.set(item.category, list)
+  }
+  return [...groups.entries()]
+}
 
-  const lines = services.map((service) => {
-    const price = service.priceLabel ? ` — ${service.priceLabel}` : ''
-    return `• *${service.name}*${price}\n  ${formatDuration(service.durationMin)}`
+/**
+ * O cardápio: os destaques com preço e, se houver, o link do completo.
+ *
+ * O link vai no corpo, e não num botão de URL, de propósito: a mensagem com
+ * botão de link não aceita os botões de resposta, e "Reservar mesa" é o
+ * próximo passo natural de quem acabou de olhar o cardápio.
+ */
+/** Quantos pratos vão na tela quando o dono não marcou nenhum destaque. */
+const MAX_PRATOS_SEM_DESTAQUE = 6
+
+export function cardapioScreen(to: string, tenant: Tenant): OutgoingMessage {
+  const t = tenantT(tenant)
+  const { menu, brand } = tenant.config
+
+  // Só os destaques, com preço: o cardápio inteiro não cabe numa mensagem (e
+  // ninguém lê 40 pratos no WhatsApp). O resto está no link. Sem nenhum
+  // destaque marcado, vão os primeiros pratos, para a tela não sair vazia.
+  const highlights = menu.items.filter((item) => item.highlight)
+  const shown = highlights.length > 0 ? highlights : menu.items.slice(0, MAX_PRATOS_SEM_DESTAQUE)
+
+  const blocks = byCategory(shown).map(([category, items]) => {
+    const lines = items.map((item) => {
+      const price = item.price ? ` — ${item.price}` : ''
+      const description = item.description ? `\n  ${item.description}` : ''
+      return `• *${item.name}*${price}${description}`
+    })
+    return category ? [`*${category}*`, ...lines].join('\n') : lines.join('\n')
   })
 
-  const body = [t('cliente.servicos.titulo', { marca: tenant.config.brand.name }), '', ...lines].join('\n')
+  const parts = [t('cliente.cardapio.titulo', { marca: brand.name })]
+  if (blocks.length > 0) parts.push(blocks.join('\n\n'))
+  if (menu.url) parts.push(t('cliente.cardapio.link', { link: menu.url }))
 
-  return buttonMessage(to, body, [
-    { id: ACTION.agendar, title: t('rotulos.botao.agendar') },
+  return buttonMessage(to, parts.join('\n\n'), [
+    { id: ACTION.reservar, title: t('rotulos.botao.reservar') },
     { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
   ])
 }
@@ -139,7 +183,7 @@ export function horariosScreen(to: string, tenant: Tenant, now: Date = new Date(
   const body = [status, '', t('cliente.horarios.titulo'), ...table].join('\n')
 
   return buttonMessage(to, body, [
-    { id: ACTION.agendar, title: t('rotulos.botao.agendar') },
+    { id: ACTION.reservar, title: t('rotulos.botao.reservar') },
     { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
   ])
 }
@@ -164,7 +208,7 @@ export function pagamentoScreen(to: string, tenant: Tenant): OutgoingMessage {
   const body = t('cliente.pagamento.corpo', { formas: tenant.config.whatsapp.paymentMethods })
 
   return buttonMessage(to, body, [
-    { id: ACTION.agendar, title: t('rotulos.botao.agendar') },
+    { id: ACTION.reservar, title: t('rotulos.botao.reservar') },
     { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
   ])
 }
@@ -178,48 +222,79 @@ export function atendenteScreen(to: string, tenant: Tenant): OutgoingMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Fluxo de agendamento
+// Fluxo de reserva
 // ---------------------------------------------------------------------------
 
-export function escolherServicoScreen(to: string, t: T, services: ServiceRecord[]): OutgoingMessage {
-  const rows: ListRow[] = services.slice(0, ROWS_WITH_BACK).map((service) => ({
-    id: `${ACTION.service}${service.id}`,
-    title: service.name,
-    description: [service.priceLabel, formatDuration(service.durationMin)].filter(Boolean).join(' · '),
+/**
+ * "Quantas pessoas?" — de 1 até 8 na lista, e "9 ou mais" para digitar.
+ *
+ * Oito linhas porque a lista cabe dez: sobra uma para o "ou mais" e uma para
+ * voltar. Restaurante que só aceita grupos pequenos (`maxPartySize` menor que
+ * 8) não mostra o "ou mais".
+ */
+export function escolherPessoasScreen(to: string, t: T, maxPartySize: number): OutgoingMessage {
+  const visible = Math.min(PARTY_ROWS, maxPartySize)
+  const rows: ListRow[] = Array.from({ length: visible }, (_, index) => ({
+    id: `${ACTION.party}${index + 1}`,
+    title: pessoas(t, index + 1),
   }))
+
+  if (maxPartySize > PARTY_ROWS) {
+    rows.push({
+      id: ACTION.partyMore,
+      title: t('rotulos.linha.maisPessoas', { total: PARTY_ROWS + 1 }),
+      description: t('rotulos.linha.maisPessoasDesc'),
+    })
+  }
   rows.push(backRow(t))
 
-  return listMessage(to, t('cliente.escolherServico.corpo'), t('rotulos.lista.verServicos'), [
-    { title: t('rotulos.secao.servicos'), rows },
+  return listMessage(to, t('cliente.escolherPessoas.corpo'), t('rotulos.lista.escolher'), [
+    { title: t('rotulos.secao.pessoas'), rows },
   ])
 }
 
-export function escolherBarbeiroScreen(
+export function digitarPessoasScreen(to: string, t: T, maxPartySize: number): OutgoingMessage {
+  return buttonMessage(to, t('cliente.digitarPessoas.corpo', { maximo: maxPartySize }), [
+    { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
+  ])
+}
+
+/** Grupo maior do que o bot aceita, ou maior que qualquer ambiente. */
+export function grupoGrandeScreen(to: string, t: T, partySize: number): OutgoingMessage {
+  return buttonMessage(to, t('cliente.grupoGrande.corpo', { pessoas: pessoas(t, partySize) }), [
+    { id: ACTION.atendente, title: t('rotulos.botao.atendente') },
+    { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
+  ])
+}
+
+export function escolherAmbienteScreen(
   to: string,
   t: T,
-  barbers: Barber[],
-  serviceName: string,
+  areas: AreaRecord[],
+  /** Descrição de cada ambiente, pelo nome — vem do config, não do banco. */
+  descriptions: Record<string, string>,
+  partySize: number,
 ): OutgoingMessage {
-  // Uma pessoa só na equipe: perguntar "com quem?" seria perda de tempo — mas
-  // quem chama já pula esta tela, então aqui só montamos o que veio.
   const rows: ListRow[] = [
     {
-      id: ACTION.barberAny,
-      title: t('rotulos.linha.semPreferencia'),
-      description: t('rotulos.linha.semPreferenciaDesc'),
+      id: ACTION.areaAny,
+      title: t('rotulos.linha.tantoFaz'),
+      description: t('rotulos.linha.tantoFazDesc'),
     },
-    ...barbers.slice(0, ROWS_WITH_BACK - 1).map((barber) => ({
-      id: `${ACTION.barber}${barber.id}`,
-      title: barber.name,
-    })),
+    ...areas.slice(0, ROWS_WITH_BACK - 1).map((area) => {
+      const row: ListRow = { id: `${ACTION.area}${area.id}`, title: area.name }
+      const description = descriptions[area.name]
+      if (description) row.description = description
+      return row
+    }),
   ]
   rows.push(backRow(t))
 
   return listMessage(
     to,
-    t('cliente.escolherBarbeiro.corpo', { servico: serviceName }),
+    t('cliente.escolherAmbiente.corpo', { pessoas: pessoas(t, partySize) }),
     t('rotulos.lista.escolher'),
-    [{ title: t('rotulos.secao.barbeiros'), rows }],
+    [{ title: t('rotulos.secao.ambientes'), rows }],
   )
 }
 
@@ -266,8 +341,8 @@ export function escolherHorarioScreen(
   const page = slots.slice(offset, offset + 8)
   const hasMore = slots.length > offset + page.length
 
-  // As linhas saem agrupadas por turno: o dia inteiro cabe numa lista só, e o
-  // cliente ainda enxerga "manhã" e "tarde" sem precisar de uma pergunta extra.
+  // As linhas saem agrupadas por turno: o sábado inteiro cabe numa lista só, e
+  // o cliente ainda enxerga "almoço" e "jantar" sem precisar de uma pergunta extra.
   const groups = groupByPeriod(page, timezone)
   const sections: ListSection[] = (Object.keys(groups) as Period[])
     .filter((period) => groups[period].length > 0)
@@ -298,10 +373,8 @@ export function escolherHorarioScreen(
 }
 
 export interface BookingSummary {
-  serviceName: string
-  priceLabel: string
-  durationMin: number
-  barberName: string
+  partySize: number
+  areaName: string
   slot: Date
 }
 
@@ -310,14 +383,14 @@ export function confirmarScreen(
   t: T,
   summary: BookingSummary,
   timezone: string,
+  approval: boolean,
   now: Date = new Date(),
 ): OutgoingMessage {
   const body = t('cliente.confirmar.corpo', {
-    servico: summary.serviceName,
-    preco: summary.priceLabel ? ` — ${summary.priceLabel}` : '',
-    barbeiro: summary.barberName,
+    pessoas: pessoas(t, summary.partySize),
+    ambiente: summary.areaName,
     data: formatDateTime(summary.slot, timezone, now),
-    duracao: formatDuration(summary.durationMin),
+    aprovacao: approval ? t('cliente.confirmar.aprovacao') : '',
   })
 
   return buttonMessage(to, body, [
@@ -328,14 +401,14 @@ export function confirmarScreen(
 }
 
 /**
- * Confirmação do agendamento — a ÚNICA que o cliente recebe.
+ * Confirmação da reserva — a ÚNICA que o cliente recebe.
  *
  * Ela é a resposta ao toque em "Confirmar", então sai na hora e traz tudo:
- * serviço, preço, barbeiro, data, duração e endereço. Não existe uma segunda
- * confirmação saindo pela fila; duas mensagens iguais em sequência só poluem a
- * conversa. Os lembretes de 24h e 2h continuam vindo pela fila.
+ * pessoas, ambiente, data e endereço. Não existe uma segunda confirmação saindo
+ * pela fila; duas mensagens iguais em sequência só poluem a conversa. Os
+ * lembretes de 24h e 2h continuam vindo pela fila.
  */
-export function agendadoScreen(
+export function reservadoScreen(
   to: string,
   summary: BookingSummary,
   tenant: Tenant,
@@ -343,17 +416,33 @@ export function agendadoScreen(
 ): OutgoingMessage {
   const t = tenantT(tenant)
   const endereco = tenant.config.contact.address
-    ? t('cliente.agendado.endereco', { endereco: tenant.config.contact.address })
+    ? t('cliente.reservado.endereco', { endereco: tenant.config.contact.address })
     : ''
 
-  const body = t('cliente.agendado.corpo', {
+  const body = t('cliente.reservado.corpo', {
     marca: tenant.config.brand.name,
-    servico: summary.serviceName,
-    preco: summary.priceLabel ? ` — ${summary.priceLabel}` : '',
-    barbeiro: summary.barberName,
+    pessoas: pessoas(t, summary.partySize),
+    ambiente: summary.areaName,
     data: formatDateTime(summary.slot, tenant.timezone, now),
-    duracao: formatDuration(summary.durationMin),
     endereco,
+  })
+
+  return buttonMessage(to, body, [{ id: ACTION.menu, title: t('rotulos.botao.voltarMenu') }])
+}
+
+/** Grupo grande: o pedido foi registrado e segura os lugares, mas o dono decide. */
+export function aguardandoAprovacaoScreen(
+  to: string,
+  summary: BookingSummary,
+  tenant: Tenant,
+  now: Date = new Date(),
+): OutgoingMessage {
+  const t = tenantT(tenant)
+  const body = t('cliente.aguardandoAprovacao.corpo', {
+    marca: tenant.config.brand.name,
+    pessoas: pessoas(t, summary.partySize),
+    ambiente: summary.areaName,
+    data: formatDateTime(summary.slot, tenant.timezone, now),
   })
 
   return buttonMessage(to, body, [{ id: ACTION.menu, title: t('rotulos.botao.voltarMenu') }])
@@ -373,71 +462,74 @@ export function horarioOcupadoScreen(to: string, t: T): OutgoingMessage {
   ])
 }
 
-export function limiteAgendamentosScreen(to: string, t: T, limite: number): OutgoingMessage {
+export function limiteReservasScreen(to: string, t: T, limite: number): OutgoingMessage {
   const quantos =
-    limite === 1
-      ? t('cliente.limiteAgendamentos.um')
-      : t('cliente.limiteAgendamentos.varios', { limite })
+    limite === 1 ? t('cliente.limiteReservas.um') : t('cliente.limiteReservas.varios', { limite })
 
-  return buttonMessage(to, t('cliente.limiteAgendamentos.corpo', { quantos }), [
-    { id: ACTION.meus, title: t('rotulos.botao.meus') },
+  return buttonMessage(to, t('cliente.limiteReservas.corpo', { quantos }), [
+    { id: ACTION.minhas, title: t('rotulos.botao.minhas') },
     { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
   ])
 }
 
 // ---------------------------------------------------------------------------
-// Agendamentos do cliente
+// Reservas do cliente
 // ---------------------------------------------------------------------------
 
-export interface AppointmentSummary {
+export interface ReservationSummary {
   id: string
-  serviceName: string
-  barberName: string
+  partySize: number
+  areaName: string
   startsAt: Date
+  pending: boolean
 }
 
-export function meusAgendamentosScreen(
+export function minhasReservasScreen(
   to: string,
   t: T,
-  appointments: AppointmentSummary[],
+  reservations: ReservationSummary[],
   timezone: string,
   now: Date = new Date(),
 ): OutgoingMessage {
-  if (appointments.length === 0) {
-    return buttonMessage(to, t('cliente.meusAgendamentos.vazio'), [
-      { id: ACTION.agendar, title: t('rotulos.botao.agendarHorario') },
+  if (reservations.length === 0) {
+    return buttonMessage(to, t('cliente.minhasReservas.vazio'), [
+      { id: ACTION.reservar, title: t('rotulos.botao.reservarMesa') },
       { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
     ])
   }
 
-  const rows: ListRow[] = appointments.slice(0, ROWS_WITH_BACK).map((appointment) => ({
-    id: `${ACTION.appointment}${appointment.id}`,
-    title: formatDayShort(appointment.startsAt, timezone, now),
-    description: `${formatTime(appointment.startsAt, timezone)} · ${appointment.serviceName} · ${appointment.barberName}`,
-  }))
+  const rows: ListRow[] = reservations.slice(0, ROWS_WITH_BACK).map((reservation) => {
+    const status = reservation.pending ? ` · ${t('rotulos.status.pendente')}` : ''
+    return {
+      id: `${ACTION.reservation}${reservation.id}`,
+      title: formatDayShort(reservation.startsAt, timezone, now),
+      description: `${formatTime(reservation.startsAt, timezone)} · ${pessoas(t, reservation.partySize)} · ${reservation.areaName}${status}`,
+    }
+  })
   rows.push(backRow(t))
 
-  return listMessage(to, t('cliente.meusAgendamentos.titulo'), t('rotulos.lista.verAgendamentos'), [
-    { title: t('rotulos.secao.agendamentos'), rows },
+  return listMessage(to, t('cliente.minhasReservas.titulo'), t('rotulos.lista.verReservas'), [
+    { title: t('rotulos.secao.reservas'), rows },
   ])
 }
 
-export function acoesAgendamentoScreen(
+export function acoesReservaScreen(
   to: string,
   t: T,
-  appointment: AppointmentSummary,
+  reservation: ReservationSummary,
   timezone: string,
   now: Date = new Date(),
 ): OutgoingMessage {
-  const body = t('cliente.acoesAgendamento.corpo', {
-    data: formatDateTime(appointment.startsAt, timezone, now),
-    servico: appointment.serviceName,
-    barbeiro: appointment.barberName,
+  const body = t('cliente.acoesReserva.corpo', {
+    data: formatDateTime(reservation.startsAt, timezone, now),
+    pessoas: pessoas(t, reservation.partySize),
+    ambiente: reservation.areaName,
+    status: reservation.pending ? t('cliente.acoesReserva.pendente') : '',
   })
 
   return buttonMessage(to, body, [
-    { id: `${ACTION.reschedule}${appointment.id}`, title: t('rotulos.botao.remarcar') },
-    { id: `${ACTION.cancel}${appointment.id}`, title: t('rotulos.botao.cancelar') },
+    { id: `${ACTION.reschedule}${reservation.id}`, title: t('rotulos.botao.remarcar') },
+    { id: `${ACTION.cancel}${reservation.id}`, title: t('rotulos.botao.cancelar') },
     { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
   ])
 }
@@ -445,25 +537,25 @@ export function acoesAgendamentoScreen(
 export function confirmarCancelamentoScreen(
   to: string,
   t: T,
-  appointment: AppointmentSummary,
+  reservation: ReservationSummary,
   timezone: string,
   now: Date = new Date(),
 ): OutgoingMessage {
   const body = t('cliente.confirmarCancelamento.corpo', {
-    data: formatDateTime(appointment.startsAt, timezone, now),
-    servico: appointment.serviceName,
-    barbeiro: appointment.barberName,
+    data: formatDateTime(reservation.startsAt, timezone, now),
+    pessoas: pessoas(t, reservation.partySize),
+    ambiente: reservation.areaName,
   })
 
   return buttonMessage(to, body, [
-    { id: `${ACTION.cancelYes}${appointment.id}`, title: t('rotulos.botao.simCancelar') },
+    { id: `${ACTION.cancelYes}${reservation.id}`, title: t('rotulos.botao.simCancelar') },
     { id: ACTION.cancelNo, title: t('rotulos.botao.naoManter') },
   ])
 }
 
 export function canceladoScreen(to: string, t: T): OutgoingMessage {
   return buttonMessage(to, t('cliente.cancelado.corpo'), [
-    { id: ACTION.agendar, title: t('rotulos.botao.marcarOutro') },
+    { id: ACTION.reservar, title: t('rotulos.botao.reservarOutra') },
     { id: ACTION.menu, title: t('rotulos.botao.voltarMenu') },
   ])
 }

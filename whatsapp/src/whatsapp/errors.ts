@@ -2,7 +2,7 @@
  * Erros da Cloud API: quais adianta tentar de novo e quais não.
  *
  * Insistir num erro definitivo é pior que inútil — gasta tentativa, polui o log
- * e atrasa as mensagens que iriam sair. O caso mais comum em barbearia é o
+ * e atrasa as mensagens que iriam sair. O caso mais comum em restaurante é o
  * 131047: passou das 24 horas desde a última mensagem do cliente, então texto
  * livre não sai mais e só um template aprovado resolve.
  */

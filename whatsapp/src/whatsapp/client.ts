@@ -6,7 +6,7 @@ import { markAsRead, type OutgoingMessage } from './payloads.js'
 /**
  * Cliente HTTP da Cloud API.
  *
- * Uma instância por barbearia, porque cada uma tem seu número e seu token.
+ * Uma instância por restaurante, porque cada uma tem seu número e seu token.
  * O `TenantRegistry` cuida de criar e reaproveitar essas instâncias.
  */
 

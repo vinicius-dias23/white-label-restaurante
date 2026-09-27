@@ -5,7 +5,7 @@ import { env } from '../env.js'
  * Pool de conexões com o Postgres.
  *
  * `timestamptz` volta como `Date` do Node, sempre em UTC. A conversão para o
- * fuso da barbearia acontece na borda, ao formatar texto para o cliente — nunca
+ * fuso do restaurante acontece na borda, ao formatar texto para o cliente — nunca
  * no meio de uma conta.
  */
 
@@ -15,7 +15,7 @@ export const pool = new Pool({
   connectionString: env.databaseUrl,
   max: env.databasePoolMax,
   ssl: env.databaseSsl ? { rejectUnauthorized: false } : false,
-  application_name: 'barbearia-whatsapp',
+  application_name: 'restaurante-whatsapp',
 })
 
 pool.on('error', (error) => {

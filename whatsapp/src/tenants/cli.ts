@@ -4,17 +4,17 @@ import { syncCatalog } from '../db/repositories/tenants.js'
 import { assertEnv, env } from '../env.js'
 import { isMain } from '../lib/entrypoint.js'
 import { CONFIG_EXAMPLE } from '../lib/paths.js'
-import { normalizePhone } from '@barbearia/shared/lib/whatsapp'
+import { normalizePhone } from '@restaurante/shared/lib/whatsapp'
 import { readTenantFile, syncAllTenants, TENANTS_DIR } from './sync.js'
 
 /**
- * Cadastro e sincronização das barbearias.
+ * Cadastro e sincronização dos restaurantes.
  *
  *   npm run tenant:sync                 lê todos os tenants/<slug>/ e grava no banco
  *   npm run tenant:list                 mostra o que está cadastrado
- *   npm run tenant:add -- --slug=x ...  cadastra uma barbearia nova
+ *   npm run tenant:add -- --slug=x ...  cadastra um restaurante novo
  *
- * O `tenant:add` é o caminho da segunda barbearia em diante: as credenciais vão
+ * O `tenant:add` é o caminho do segundo restaurante em diante: as credenciais vão
  * criptografadas para o banco e o `.env` continua enxuto.
  */
 
@@ -29,7 +29,7 @@ async function commandSync(): Promise<void> {
 
   for (const result of results) {
     if (result.skipped) {
-      console.log(`\n⚠  ${result.slug} — não cadastrada`)
+      console.log(`\n⚠  ${result.slug} — não cadastrado`)
       console.log(`   ${result.skipped}`)
       continue
     }
@@ -39,20 +39,14 @@ async function commandSync(): Promise<void> {
     console.log(`   fuso: ${result.tenant?.timezone}`)
 
     if (result.warnings.length > 0) {
-      console.log(`   ${result.warnings.length} aviso(s) no barbearia.config.json:`)
+      console.log(`   ${result.warnings.length} aviso(s) no restaurante.config.json:`)
       for (const warning of result.warnings) console.log(`     · ${warning}`)
-    }
-    if (result.fallbacks.length > 0) {
-      console.log(
-        `   ⚠  duração não reconhecida (usando booking.defaultDurationMin): ${result.fallbacks.join(', ')}`,
-      )
-      console.log('      Corrija com "durationMin" no serviço, ex.: "durationMin": 45')
     }
   }
 
   if (results.length === 0) {
-    console.log(`\nNenhuma barbearia em ${TENANTS_DIR}/.`)
-    console.log(`Crie ${TENANTS_DIR}/<slug>/barbearia.config.json`)
+    console.log(`\nNenhum restaurante em ${TENANTS_DIR}/.`)
+    console.log(`Crie ${TENANTS_DIR}/<slug>/restaurante.config.json`)
     console.log(`Use ${CONFIG_EXAMPLE} como base.`)
   }
 }
@@ -60,12 +54,12 @@ async function commandSync(): Promise<void> {
 async function commandList(): Promise<void> {
   const tenants = await listTenants()
   if (tenants.length === 0) {
-    console.log('Nenhuma barbearia cadastrada. Rode: npm run tenant:sync')
+    console.log('Nenhum restaurante cadastrado. Rode: npm run tenant:sync')
     return
   }
-  console.log(`\n${tenants.length} barbearia(s):\n`)
+  console.log(`\n${tenants.length} restaurante(s):\n`)
   for (const tenant of tenants) {
-    const status = tenant.active ? 'ativa' : 'INATIVA'
+    const status = tenant.active ? 'ativo' : 'INATIVO'
     console.log(`  ${tenant.slug.padEnd(24)} ${tenant.displayName.padEnd(28)} ${tenant.phoneNumberId}  [${status}]`)
   }
   console.log()
@@ -86,7 +80,7 @@ async function commandAdd(): Promise<void> {
     console.error(`\n✖ Faltou: ${missing.join(', ')}\n`)
     console.error('Exemplo:')
     console.error('  npm run tenant:add -- \\')
-    console.error('    --slug=barbearia-do-ze \\')
+    console.error('    --slug=cantina-bella-nonna \\')
     console.error('    --phone-number-id=123456789012345 \\')
     console.error('    --waba-id=987654321098765 \\')
     console.error('    --token=EAAG... \\')
@@ -110,8 +104,8 @@ async function commandAdd(): Promise<void> {
 
   const catalog = await syncCatalog(tenant)
 
-  console.log(`\n✔ ${tenant.displayName} cadastrada (${tenant.slug})`)
-  console.log(`   ${catalog.barbers} barbeiro(s), ${catalog.services} serviço(s)`)
+  console.log(`\n✔ ${tenant.displayName} cadastrado (${tenant.slug})`)
+  console.log(`   ${catalog.areas} ambiente(s), ${catalog.staff} pessoa(s) na equipe`)
   console.log(`   O token foi criptografado com a APP_ENCRYPTION_KEY antes de ir para o banco.\n`)
   if (!tenant.ownerPhone) {
     console.log('   ⚠  Sem --owner: o dono não vai receber avisos nem ter o menu de administração.\n')

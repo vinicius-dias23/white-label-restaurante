@@ -1,8 +1,8 @@
 import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
-import { normalizePhone } from '@barbearia/shared/lib/whatsapp'
+import { normalizePhone } from '@restaurante/shared/lib/whatsapp'
 import { closePool, pool } from '../db/pool.js'
-import { findTenantBySlug, listBarbers, listTenants } from '../db/repositories/tenants.js'
+import { findTenantBySlug, listStaff, listTenants } from '../db/repositories/tenants.js'
 import { assertEnv, env } from '../env.js'
 import { isMain } from '../lib/entrypoint.js'
 import { getTenantContext, invalidateTenantCache, setClientFactory } from '../tenants/registry.js'
@@ -14,12 +14,12 @@ import { handleInbound } from './handler.js'
 /**
  * Conversa com o bot pelo terminal, como se você fosse o cliente.
  *
- *   npm run bot:sim                          cliente qualquer, primeira barbearia
+ *   npm run bot:sim                          cliente qualquer, primeiro restaurante
  *   npm run bot:sim -- --from=5511988887777  outro cliente
  *   npm run bot:sim -- --dono                entra como o dono (painel de admin)
- *   npm run bot:sim -- --barbeiro=rafael     entra como um barbeiro (painel dele)
+ *   npm run bot:sim -- --recepcao=julia      entra como alguém da equipe (painel da recepção)
  *
- * É o bot INTEIRO: máquina de estados, banco, regras de horário, agendamento
+ * É o bot INTEIRO: máquina de estados, banco, lotação dos ambientes, reserva
  * de verdade. A única peça trocada é o envio para a Meta — em vez de sair pela
  * Cloud API, a mensagem é desenhada aqui. Por isso não precisa de número na
  * lista de permitidos, não gasta conversa e não depende de webhook.
@@ -64,7 +64,7 @@ function render(message: OutgoingMessage): void {
     for (const line of text.split('\n')) console.log(`   ${line}`)
   }
 
-  console.log(`\n${GREEN}${BOLD}⬅ barbearia${OFF}`)
+  console.log(`\n${GREEN}${BOLD}⬅ restaurante${OFF}`)
 
   if (message.type === 'text') {
     say((message.text as { body: string }).body)
@@ -137,7 +137,7 @@ async function reset(tenantId: string, waId: string): Promise<void> {
   if (!id) return
   await pool.query('delete from message_log where contact_id = $1', [id])
   await pool.query('delete from conversations where contact_id = $1', [id])
-  console.log(`${DIM}conversa reiniciada (agendamentos foram mantidos)${OFF}`)
+  console.log(`${DIM}conversa reiniciada (as reservas foram mantidas)${OFF}`)
 }
 
 async function main(): Promise<void> {
@@ -148,31 +148,31 @@ async function main(): Promise<void> {
   if (!tenant) {
     console.error(
       slug
-        ? `✖ barbearia "${slug}" não está cadastrada. Rode: npm run tenant:sync`
-        : '✖ nenhuma barbearia cadastrada. Rode: npm run tenant:sync',
+        ? `✖ restaurante "${slug}" não está cadastrado. Rode: npm run tenant:sync`
+        : '✖ nenhum restaurante cadastrado. Rode: npm run tenant:sync',
     )
     process.exit(1)
   }
 
   // O número é o que decide qual painel abre — é assim que o `handleInbound`
-  // reconhece o dono e o barbeiro. Então o simulador não "entra como": ele só
+  // reconhece o dono e a recepção. Então o simulador não "entra como": ele só
   // escolhe de que número está escrevendo.
-  const barbeiroSlug = flag('barbeiro')
-  let barbeiro: Awaited<ReturnType<typeof listBarbers>>[number] | undefined
+  const recepcaoSlug = flag('recepcao')
+  let recepcao: Awaited<ReturnType<typeof listStaff>>[number] | undefined
 
-  if (barbeiroSlug) {
-    const equipe = await listBarbers(tenant.id)
-    barbeiro = equipe.find((item) => item.slug === barbeiroSlug)
+  if (recepcaoSlug) {
+    const equipe = await listStaff(tenant.id)
+    recepcao = equipe.find((item) => item.slug === recepcaoSlug)
 
-    if (!barbeiro) {
-      const nomes = equipe.map((item) => item.slug).join(', ') || '(nenhum)'
-      console.error(`✖ barbeiro "${barbeiroSlug}" não existe nesta barbearia. Tem: ${nomes}`)
+    if (!recepcao) {
+      const nomes = equipe.map((item) => item.slug).join(', ') || '(ninguém)'
+      console.error(`✖ "${recepcaoSlug}" não está na equipe deste restaurante. Tem: ${nomes}`)
       process.exit(1)
     }
-    if (!barbeiro.phone) {
+    if (!recepcao.phone) {
       console.error(
-        `✖ "${barbeiro.name}" está sem telefone.\n` +
-          '  Preencha o WhatsApp dele na aba Equipe do estúdio (npm run textos:studio)\n' +
+        `✖ "${recepcao.name}" está sem telefone.\n` +
+          '  Preencha o WhatsApp na aba Equipe do estúdio (npm run textos:studio)\n' +
           '  e rode: npm run tenant:sync',
       )
       process.exit(1)
@@ -181,12 +181,12 @@ async function main(): Promise<void> {
 
   const waId = has('dono')
     ? normalizePhone(tenant.ownerPhone, env.defaultCountryCode)
-    : barbeiro
-      ? normalizePhone(barbeiro.phone, env.defaultCountryCode)
+    : recepcao
+      ? normalizePhone(recepcao.phone, env.defaultCountryCode)
       : normalizePhone(flag('from') || '5511988887777', env.defaultCountryCode)
 
   if (has('dono') && !waId) {
-    console.error('✖ esta barbearia não tem TENANT_OWNER_PHONE cadastrado.')
+    console.error('✖ este restaurante não tem TENANT_OWNER_PHONE cadastrado.')
     process.exit(1)
   }
 
@@ -196,7 +196,7 @@ async function main(): Promise<void> {
 
   const ctx = await getTenantContext(tenant.phoneNumberId)
   if (!ctx) {
-    console.error('✖ não consegui montar o contexto da barbearia.')
+    console.error('✖ não consegui montar o contexto do restaurante.')
     process.exit(1)
   }
 
@@ -205,12 +205,12 @@ async function main(): Promise<void> {
   console.log(`\n${BOLD}${tenant.displayName}${OFF} ${DIM}(${tenant.slug})${OFF}`)
   const papel = has('dono')
     ? ' — o DONO'
-    : barbeiro
-      ? ` — o barbeiro ${barbeiro.name}`
+    : recepcao
+      ? ` — ${recepcao.name}, da recepção`
       : ' — um cliente'
   console.log(`${DIM}você é ${waId}${papel}${OFF}`)
   console.log(`${DIM}nada sai para a Meta. digite um texto, ou o número de uma opção.${OFF}`)
-  console.log(`${DIM}/reset reinicia · /sair encerra${OFF}`)
+  console.log(`${DIM}=12 manda "12" como texto (o número de pessoas) · /reset reinicia · /sair encerra${OFF}`)
 
   // O iterador assíncrono (em vez de `rl.question`) é o que faz o simulador
   // servir nos dois modos: digitando, e com a entrada vinda de um pipe — que é
@@ -238,8 +238,11 @@ async function main(): Promise<void> {
 
     // Um número sozinho escolhe a opção correspondente da última lista/botões —
     // é o equivalente a tocar nela no aplicativo, e o bot recebe o id, não o texto.
+    //
+    // "=12" é o escape: manda o texto "12" mesmo havendo uma opção 12 — é como
+    // se responde "Quantas pessoas?" depois de tocar em "9 ou mais".
     let action: string | null = null
-    let text = line
+    let text = line.startsWith('=') ? line.slice(1).trim() : line
     const picked = /^\d+$/.test(line) ? lastChoices[Number(line) - 1] : undefined
     if (picked) {
       action = picked.id
@@ -251,7 +254,7 @@ async function main(): Promise<void> {
     const inbound: NormalizedInbound = {
       messageId: `wamid.SIM_IN_${Date.now()}_${counter}`,
       from: waId,
-      profileName: has('dono') ? 'Dono (sim)' : barbeiro ? `${barbeiro.name} (sim)` : 'Cliente (sim)',
+      profileName: has('dono') ? 'Dono (sim)' : recepcao ? `${recepcao.name} (sim)` : 'Cliente (sim)',
       timestamp: new Date(),
       action,
       text,

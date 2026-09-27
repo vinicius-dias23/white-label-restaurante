@@ -12,14 +12,14 @@ import {
   TEXTOS,
   TEXTO_KEYS,
   type TextoKey,
-} from '@barbearia/shared/config'
+} from '@restaurante/shared/config'
 import { env } from '../env.js'
 import { isMain } from '../lib/entrypoint.js'
 import { log } from '../lib/logger.js'
 import { TENANTS_DIR } from '../lib/paths.js'
 import { listTenantSlugs, readTenantFile, syncTenant } from '../tenants/sync.js'
 import { findTenantBySlug } from '../db/repositories/tenants.js'
-import { usoFuturo } from '../db/repositories/appointments.js'
+import { usoFuturo } from '../db/repositories/reservations.js'
 import { DIAS, lerConteudo, paraGravar, type ConteudoRecebido } from './conteudo.js'
 import { editarCaminho } from './json-edit.js'
 import { closePool } from '../db/pool.js'
@@ -33,14 +33,14 @@ import { previewConteudo, previewDe, PREVIEW_KEYS, SECOES_COM_PREVIEW } from './
  * alcança 127.0.0.1 já é você. Se um dia isso for exposto, precisa de auth de
  * verdade antes.
  *
- * O arquivo `tenants/<slug>/barbearia.config.json` continua sendo a fonte da
+ * O arquivo `tenants/<slug>/restaurante.config.json` continua sendo a fonte da
  * verdade — o estúdio grava nele, sincroniza para o Postgres e invalida o cache
  * do bot. O commit é seu, pelo botão Publicar.
  */
 
 const PUBLIC_DIR = join(fileURLToPath(new URL('.', import.meta.url)), 'public')
 const REPO_ROOT = resolve(TENANTS_DIR, '..', '..')
-const CONFIGS_GLOB = 'whatsapp/tenants/*/barbearia.config.json'
+const CONFIGS_GLOB = 'whatsapp/tenants/*/restaurante.config.json'
 
 const run = promisify(execFile)
 
@@ -101,7 +101,7 @@ async function lerTextos(slug: string): Promise<{ nome: string; textos: TextoRes
  * melhor que arquivo corrompido.
  */
 async function gravarTextos(slug: string, textos: Record<string, string>): Promise<string[]> {
-  const path = join(TENANTS_DIR, slug, 'barbearia.config.json')
+  const path = join(TENANTS_DIR, slug, 'restaurante.config.json')
   const original = await readFile(path, 'utf8')
   const raw = JSON.parse(original) as Record<string, unknown>
 
@@ -145,7 +145,7 @@ async function gravarTextos(slug: string, textos: Record<string, string>): Promi
  * objeto esperado, com regravação inteira como plano B.
  */
 async function gravarConteudo(slug: string, recebido: ConteudoRecebido): Promise<string[]> {
-  const path = join(TENANTS_DIR, slug, 'barbearia.config.json')
+  const path = join(TENANTS_DIR, slug, 'restaurante.config.json')
   const original = await readFile(path, 'utf8')
   const atual = await readTenantFile(slug)
 
@@ -218,7 +218,7 @@ export function buildStudio() {
         const file = await readTenantFile(slug)
         tenants.push({ slug, nome: file.config.brand.name })
       } catch (error) {
-        log.warn('config da barbearia não pôde ser lido', { slug, reason: String(error) })
+        log.warn('config do restaurante não pôde ser lido', { slug, reason: String(error) })
         tenants.push({ slug, nome: slug })
       }
     }
@@ -230,7 +230,7 @@ export function buildStudio() {
     try {
       return await lerTextos(slug)
     } catch (error) {
-      return reply.code(404).send({ erro: `não consegui ler a barbearia "${slug}": ${String(error)}` })
+      return reply.code(404).send({ erro: `não consegui ler o restaurante "${slug}": ${String(error)}` })
     }
   })
 
@@ -296,12 +296,12 @@ export function buildStudio() {
       const file = await readTenantFile(slug)
       return { conteudo: lerConteudo(file.config), dias: DIAS, avisos: file.warnings }
     } catch (error) {
-      return reply.code(404).send({ erro: `não consegui ler a barbearia "${slug}": ${String(error)}` })
+      return reply.code(404).send({ erro: `não consegui ler o restaurante "${slug}": ${String(error)}` })
     }
   })
 
   /**
-   * Quantos agendamentos futuros usam cada serviço e cada barbeiro.
+   * Quantas reservas futuras usam cada ambiente.
    *
    * A UI pergunta isto antes de deixar remover: o item sai do menu, mas quem já
    * marcou continua marcado, e o dono é quem vai ter que avisar essas pessoas.
@@ -310,11 +310,11 @@ export function buildStudio() {
     const { slug } = request.params as { slug: string }
     try {
       const tenant = await findTenantBySlug(slug)
-      if (!tenant) return { services: {}, barbers: {}, semBanco: false }
+      if (!tenant) return { areas: {}, semBanco: false }
       return { ...(await usoFuturo(tenant.id)), semBanco: false }
     } catch {
-      // Sem banco a UI ainda edita; só não consegue avisar sobre a agenda.
-      return { services: {}, barbers: {}, semBanco: true }
+      // Sem banco a UI ainda edita; só não consegue avisar sobre as reservas.
+      return { areas: {}, semBanco: true }
     }
   })
 
@@ -335,12 +335,9 @@ export function buildStudio() {
 
     try {
       const resultado = await syncTenant(slug)
-      const fallbacks = resultado.fallbacks.length
-        ? [`duração deduzida do padrão em: ${resultado.fallbacks.join(', ')}`]
-        : []
       return {
         ok: true,
-        avisos: [...avisos, ...fallbacks],
+        avisos: [...new Set([...avisos, ...resultado.warnings])],
         aplicado: resultado.tenant !== null,
         detalhe: resultado.skipped ?? 'catálogo atualizado no banco e no bot',
       }
@@ -371,7 +368,7 @@ export function buildStudio() {
     try {
       const file = await readTenantFile(slug)
       const bruto = JSON.parse(
-        await readFile(join(TENANTS_DIR, slug, 'barbearia.config.json'), 'utf8'),
+        await readFile(join(TENANTS_DIR, slug, 'restaurante.config.json'), 'utf8'),
       ) as Record<string, unknown>
 
       for (const { caminho, valor } of paraGravar(body.conteudo ?? {}, file.config, bruto)) {
@@ -406,7 +403,7 @@ export function buildStudio() {
    * Publica: add + commit + push na branch atual.
    *
    * Recusa na branch principal de propósito — os textos são revisados em pull
-   * request, como o resto do config das barbearias.
+   * request, como o resto do config dos restaurantes.
    */
   app.post('/api/git/publicar', async (request, reply) => {
     const body = request.body as { mensagem?: string }
@@ -419,7 +416,7 @@ export function buildStudio() {
     }
 
     const status = (await git('status', '--porcelain', '--', CONFIGS_GLOB)).trim()
-    if (!status) return reply.code(400).send({ erro: 'nada mudou nos configs das barbearias.' })
+    if (!status) return reply.code(400).send({ erro: 'nada mudou nos configs dos restaurantes.' })
 
     try {
       await git('add', '--', CONFIGS_GLOB)

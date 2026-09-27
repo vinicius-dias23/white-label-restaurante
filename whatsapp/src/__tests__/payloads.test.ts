@@ -7,35 +7,35 @@ import {
   templateMessage,
   textMessage,
 } from '../whatsapp/payloads.js'
-import { DEFAULT_CONFIG } from '@barbearia/shared/config'
+import { DEFAULT_CONFIG } from '@restaurante/shared/config'
 import { escolherHorarioScreen } from '../bot/screens.js'
 import { makeT } from '../bot/textos.js'
 
 /**
  * Os limites da Meta são recusa da mensagem INTEIRA, não corte silencioso.
- * Um nome de serviço comprido derrubaria o menu do cliente — por isso tudo
+ * Um nome de prato comprido derrubaria o menu do cliente — por isso tudo
  * passa por `fit()`, e por isso este teste existe.
  */
 
 describe('fit', () => {
   it('deixa em paz o texto que já cabe', () => {
-    expect(fit('Corte + Barba', 24)).toBe('Corte + Barba')
+    expect(fit('Lasanha + Vinho', 24)).toBe('Lasanha + Vinho')
   })
 
   it('corta preservando a palavra quando dá', () => {
-    const result = fit('Corte Degradê com Navalha Premium', 24)
+    const result = fit('Espaguete à Carbonara Tradicional', 24)
     expect(result.length).toBeLessThanOrEqual(24)
     expect(result.endsWith('…')).toBe(true)
     expect(result).not.toMatch(/\s…$/) // sem espaço antes das reticências
   })
 
   it('corta no meio da palavra quando ela é longa demais', () => {
-    const result = fit('Superhipermegacortemodernissimo', 12)
+    const result = fit('Superhipermegaespaguetissimo', 12)
     expect(result.length).toBeLessThanOrEqual(12)
   })
 
   it('normaliza espaços e quebras de linha', () => {
-    expect(fit('  Corte    +\n Barba  ', 40)).toBe('Corte + Barba')
+    expect(fit('  Lasanha    +\n Vinho  ', 40)).toBe('Lasanha + Vinho')
   })
 
   it('fitBody preserva parágrafos', () => {
@@ -89,13 +89,13 @@ describe('botões', () => {
 
 describe('lista', () => {
   it('corta título e descrição de cada linha nos limites da Meta', () => {
-    const message = listMessage('5511999999999', 'Escolha', 'Ver serviços', [
+    const message = listMessage('5511999999999', 'Escolha', 'Ver pratos', [
       {
-        title: 'Serviços da barbearia com nome bem comprido',
+        title: 'Pratos da casa com um nome bem comprido',
         rows: [
           {
             id: 'svc:1',
-            title: 'Corte Degradê com Navalha e Toalha Quente',
+            title: 'Espaguete à Carbonara com Guanciale Crocante',
             description: 'Uma descrição bastante longa que passa dos setenta e dois caracteres permitidos pela Meta',
           },
         ],
@@ -129,7 +129,7 @@ describe('lista', () => {
 describe('template', () => {
   it('monta as variáveis do corpo na ordem informada', () => {
     const message = templateMessage('5511999999999', 'lembrete_24h', 'pt_BR', {
-      bodyParams: ['João', 'Barbearia do Zé', 'Corte + Barba', 'sexta, 22/08 às 14:30'],
+      bodyParams: ['João', 'Cantina do Zé', '4 pessoas', 'sexta, 22/08 às 14:30'],
     })
 
     const template = message.template as { name: string; language: { code: string }; components: unknown[] }
@@ -139,8 +139,8 @@ describe('template', () => {
     expect(body.type).toBe('body')
     expect(body.parameters.map((parameter) => parameter.text)).toEqual([
       'João',
-      'Barbearia do Zé',
-      'Corte + Barba',
+      'Cantina do Zé',
+      '4 pessoas',
       'sexta, 22/08 às 14:30',
     ])
   })
@@ -178,18 +178,20 @@ describe('botão de link', () => {
 describe('tela de horários', () => {
   const TZ = 'America/Sao_Paulo'
   const HOJE = new Date('2026-08-28T12:00:00.000Z')
+  /** 12:00 locais: começo do almoço. */
+  const MEIO_DIA = new Date('2026-08-28T15:00:00.000Z')
   const t = makeT(DEFAULT_CONFIG)
 
-  /** Grade de hora em hora a partir das 09:00 locais (12:00 UTC). */
+  /** Grade de hora em hora a partir das 12:00 locais (15:00 UTC). */
   const grade = (quantos: number): Date[] =>
-    Array.from({ length: quantos }, (_, i) => new Date(HOJE.getTime() + i * 60 * 60_000))
+    Array.from({ length: quantos }, (_, i) => new Date(MEIO_DIA.getTime() + i * 60 * 60_000))
 
   it('agrupa os horários por turno numa lista só', () => {
-    // A página são 8 horários: 09:00 às 16:00 locais, ou seja, manhã e tarde.
+    // A página são 8 horários: 12:00 às 19:00 locais, ou seja, almoço e jantar.
     const message = escolherHorarioScreen('5511999999999', t, HOJE, grade(12), TZ, 0, HOJE)
     const { sections } = (message.interactive as any).action
 
-    expect(sections.map((section: any) => section.title)).toEqual(['Manhã', 'Tarde', 'Outras opções'])
+    expect(sections.map((section: any) => section.title)).toEqual(['Almoço', 'Jantar', 'Outras opções'])
 
     const rows = sections.flatMap((section: any) => section.rows)
     expect(rows).toHaveLength(LIMITS.maxRows)

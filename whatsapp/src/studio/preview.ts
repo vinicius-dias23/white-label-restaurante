@@ -1,37 +1,46 @@
-import type { SiteConfig } from '@barbearia/shared/config'
-import { isTextoKey, TEXTOS, type TextoKey } from '@barbearia/shared/config'
-import { renderTexto } from '@barbearia/shared/lib/texto'
+import type { SiteConfig } from '@restaurante/shared/config'
+import { isTextoKey, TEXTOS, type TextoKey } from '@restaurante/shared/config'
+import { renderTexto } from '@restaurante/shared/lib/texto'
 import {
-  acoesAgendamentoScreen,
-  agendadoScreen,
+  acoesReservaScreen,
+  aguardandoAprovacaoScreen,
   atendenteScreen,
   canceladoScreen,
   cancelamentoTardeScreen,
+  cardapioScreen,
   confirmarCancelamentoScreen,
   confirmarScreen,
+  digitarPessoasScreen,
   enderecoScreen,
-  escolherBarbeiroScreen,
+  escolherAmbienteScreen,
   escolherDiaScreen,
   escolherHorarioScreen,
-  escolherServicoScreen,
+  escolherPessoasScreen,
+  grupoGrandeScreen,
   horarioOcupadoScreen,
   horariosScreen,
-  limiteAgendamentosScreen,
+  limiteReservasScreen,
   menuScreen,
-  meusAgendamentosScreen,
+  minhasReservasScreen,
   naoEntendiScreen,
   optInScreen,
   optOutScreen,
   pagamentoScreen,
   presencaConfirmadaScreen,
+  reservadoScreen,
   semHorarioScreen,
-  servicosScreen,
 } from '../bot/screens.js'
 import { makeT } from '../bot/textos.js'
-import { resolveDuration } from '../booking/duration.js'
 import { resolveSlugs } from '../tenants/slug.js'
-import { avisoAtendente, avisoCancelamento, avisoNovoAgendamento } from '../scheduler/messages.js'
-import type { Barber, ServiceRecord, Tenant } from '../tenants/types.js'
+import {
+  avisoAtendente,
+  avisoCancelamento,
+  avisoNovaReserva,
+  pedidoAprovacao,
+  reservaAprovadaMessage,
+  reservaRecusadaMessage,
+} from '../scheduler/messages.js'
+import type { AreaRecord, Tenant } from '../tenants/types.js'
 import type { OutgoingMessage } from '../whatsapp/payloads.js'
 
 /**
@@ -41,63 +50,52 @@ import type { OutgoingMessage } from '../whatsapp/payloads.js'
  * exemplo. É o único jeito de o dono ver antes de salvar o que a Meta vai
  * cortar, e que o rótulo de 22 caracteres não cabe no botão.
  *
- * As telas do painel do dono tocam o banco, então não entram aqui: para elas o
- * estúdio mostra o texto com as variáveis preenchidas, que é o que dá para
- * garantir sem inventar uma agenda falsa.
+ * As telas dos painéis do dono e da recepção tocam o banco, então só os avisos
+ * entram aqui: para o resto o estúdio mostra o texto com as variáveis
+ * preenchidas, que é o que dá para garantir sem inventar uma noite falsa.
  */
 
 const TO = '5511988887777'
 const AGORA = new Date('2026-08-28T12:00:00.000Z')
-const SLOT = new Date('2026-08-28T17:00:00.000Z')
+const SLOT = new Date('2026-08-28T23:00:00.000Z')
 
 /**
- * O catálogo do preview sai do config da barbearia, não de uma lista inventada.
+ * Os ambientes do preview saem do config do restaurante, não de uma lista
+ * inventada.
  *
  * Em produção esses registros vêm do banco, gravados pelo `syncCatalog` a
  * partir do mesmo config — então derivar aqui mostra exatamente o que o cliente
- * vai ver, inclusive o serviço que o dono acabou de digitar e ainda não salvou.
+ * vai ver, inclusive o ambiente que o dono acabou de digitar e ainda não salvou.
  */
-function servicosDe(config: SiteConfig): ServiceRecord[] {
-  const slugs = resolveSlugs(config.services, 'servico')
-  return config.services.map((service, index) => ({
-    id: `svc-${index}`,
+function ambientesDe(config: SiteConfig): AreaRecord[] {
+  const reservaveis = config.areas.filter((area) => area.bookable && area.capacity > 0)
+  const lista = reservaveis.length > 0 ? reservaveis : [{ slug: '', name: config.brand.name, capacity: 40 }]
+  const slugs = resolveSlugs(lista, 'ambiente')
+  return lista.map((area, index) => ({
+    id: `amb-${index}`,
     slug: slugs[index]!,
-    name: service.name,
-    priceLabel: service.price,
-    durationMin: resolveDuration(service, config.booking.defaultDurationMin).minutes,
+    name: area.name,
+    capacity: area.capacity,
     active: true,
     sortOrder: index,
   }))
 }
 
-function barbeirosDe(config: SiteConfig): Barber[] {
-  const equipe = config.team.filter((member) => member.bookable)
-  const time = equipe.length > 0 ? equipe : [{ slug: '', name: config.brand.name }]
-  const slugs = resolveSlugs(time, 'barbeiro')
-  return time.map((member, index) => ({
-    id: `brb-${index}`,
-    slug: slugs[index]!,
-    name: member.name,
-    // O preview não identifica ninguém: as telas que ele desenha são as do
-    // cliente, e nenhuma delas olha o telefone do barbeiro.
-    phone: '',
-    active: true,
-    sortOrder: index,
-  }))
+function descricoesDe(config: SiteConfig): Record<string, string> {
+  return Object.fromEntries(config.areas.map((area) => [area.name, area.description]))
 }
 
-const AGENDAMENTO = {
-  id: 'apt-1',
-  serviceName: 'Corte + Barba',
-  barberName: 'Zé',
+const RESERVA = {
+  id: 'res-1',
+  partySize: 4,
+  areaName: 'Varanda',
   startsAt: SLOT,
+  pending: false,
 }
 
 const RESUMO = {
-  serviceName: 'Corte + Barba',
-  priceLabel: 'R$ 75',
-  durationMin: 60,
-  barberName: 'Zé',
+  partySize: 4,
+  areaName: 'Varanda',
   slot: SLOT,
 }
 
@@ -106,15 +104,18 @@ const DIAS = Array.from({ length: 5 }, (_, i) => ({
   date: new Date(SLOT.getTime() + i * 24 * 60 * 60 * 1000),
 }))
 
-const HORARIOS = Array.from({ length: 6 }, (_, i) => new Date(SLOT.getTime() + i * 60 * 60 * 1000))
+const HORARIOS = Array.from({ length: 6 }, (_, i) => new Date(SLOT.getTime() + i * 30 * 60 * 1000))
 
 const DADOS_AVISO = {
-  contactName: 'João Pereira',
-  serviceName: 'Corte + Barba',
-  barberName: 'Zé',
+  contactName: 'Marina Souza',
+  contactWaId: TO,
+  partySize: 4,
+  areaName: 'Varanda',
   startsAt: SLOT,
-  appointmentId: 'apt-1',
+  reservationId: 'res-1',
 }
+
+const DADOS_GRUPO = { ...DADOS_AVISO, partySize: 12, areaName: 'Salão' }
 
 /** Uma cena: as chaves que ela mostra e a mensagem que ela monta. */
 interface Cena {
@@ -129,12 +130,12 @@ const CENAS: Cena[] = [
       'cliente.menu.corpo',
       'rotulos.lista.verOpcoes',
       'rotulos.secao.atendimento',
-      'rotulos.menu.agendar',
-      'rotulos.menu.agendarDesc',
-      'rotulos.menu.meus',
-      'rotulos.menu.meusDesc',
-      'rotulos.menu.servicos',
-      'rotulos.menu.servicosDesc',
+      'rotulos.menu.reservar',
+      'rotulos.menu.reservarDesc',
+      'rotulos.menu.minhas',
+      'rotulos.menu.minhasDesc',
+      'rotulos.menu.cardapio',
+      'rotulos.menu.cardapioDesc',
       'rotulos.menu.horarios',
       'rotulos.menu.endereco',
       'rotulos.menu.enderecoDesc',
@@ -146,8 +147,8 @@ const CENAS: Cena[] = [
   },
   { keys: ['cliente.menu.naoEntendi'], monta: (tenant) => naoEntendiScreen(TO, tenant) },
   {
-    keys: ['cliente.servicos.titulo', 'rotulos.botao.agendar', 'rotulos.botao.voltarMenu'],
-    monta: (tenant) => servicosScreen(TO, tenant, servicosDe(tenant.config)),
+    keys: ['cliente.cardapio.titulo', 'cliente.cardapio.link', 'rotulos.botao.reservar', 'rotulos.botao.voltarMenu'],
+    monta: (tenant) => cardapioScreen(TO, tenant),
   },
   {
     keys: [
@@ -165,23 +166,40 @@ const CENAS: Cena[] = [
     monta: (tenant) => atendenteScreen(TO, tenant),
   },
   {
-    keys: ['cliente.escolherServico.corpo', 'rotulos.lista.verServicos', 'rotulos.secao.servicos', 'rotulos.linha.voltarMenu'],
-    monta: (tenant) => escolherServicoScreen(TO, makeT(tenant.config), servicosDe(tenant.config)),
+    keys: [
+      'cliente.escolherPessoas.corpo',
+      'rotulos.lista.escolher',
+      'rotulos.secao.pessoas',
+      'rotulos.pessoa.uma',
+      'rotulos.pessoa.varias',
+      'rotulos.linha.maisPessoas',
+      'rotulos.linha.maisPessoasDesc',
+      'rotulos.linha.voltarMenu',
+    ],
+    monta: (tenant) => escolherPessoasScreen(TO, makeT(tenant.config), tenant.config.booking.maxPartySize),
+  },
+  {
+    keys: ['cliente.digitarPessoas.corpo'],
+    monta: (tenant) => digitarPessoasScreen(TO, makeT(tenant.config), tenant.config.booking.maxPartySize),
+  },
+  {
+    keys: ['cliente.grupoGrande.corpo', 'rotulos.botao.atendente'],
+    monta: (tenant) => grupoGrandeScreen(TO, makeT(tenant.config), tenant.config.booking.maxPartySize + 5),
   },
   {
     keys: [
-      'cliente.escolherBarbeiro.corpo',
-      'rotulos.lista.escolher',
-      'rotulos.secao.barbeiros',
-      'rotulos.linha.semPreferencia',
-      'rotulos.linha.semPreferenciaDesc',
+      'cliente.escolherAmbiente.corpo',
+      'rotulos.secao.ambientes',
+      'rotulos.linha.tantoFaz',
+      'rotulos.linha.tantoFazDesc',
     ],
     monta: (tenant) =>
-      escolherBarbeiroScreen(
+      escolherAmbienteScreen(
         TO,
         makeT(tenant.config),
-        barbeirosDe(tenant.config),
-        tenant.config.services[0]?.name ?? 'Corte',
+        ambientesDe(tenant.config),
+        descricoesDe(tenant.config),
+        4,
       ),
   },
   {
@@ -204,16 +222,41 @@ const CENAS: Cena[] = [
       'rotulos.botao.confirmar',
       'rotulos.botao.trocarHorario',
       'rotulos.botao.cancelar',
-      'rotulos.barbeiroQualquer',
     ],
-    monta: (tenant) => confirmarScreen(TO, makeT(tenant.config), RESUMO, tenant.timezone, AGORA),
+    monta: (tenant) => confirmarScreen(TO, makeT(tenant.config), RESUMO, tenant.timezone, false, AGORA),
   },
   {
-    keys: ['cliente.agendado.corpo', 'cliente.agendado.endereco'],
-    monta: (tenant) => agendadoScreen(TO, RESUMO, tenant, AGORA),
+    keys: ['cliente.confirmar.aprovacao', 'rotulos.ambienteQualquer'],
+    monta: (tenant) => {
+      const t = makeT(tenant.config)
+      return confirmarScreen(
+        TO,
+        t,
+        { partySize: 12, areaName: t('rotulos.ambienteQualquer'), slot: SLOT },
+        tenant.timezone,
+        true,
+        AGORA,
+      )
+    },
   },
   {
-    keys: ['cliente.semHorario.corpo', 'rotulos.botao.atendente'],
+    keys: ['cliente.reservado.corpo', 'cliente.reservado.endereco'],
+    monta: (tenant) => reservadoScreen(TO, RESUMO, tenant, AGORA),
+  },
+  {
+    keys: ['cliente.aguardandoAprovacao.corpo'],
+    monta: (tenant) => aguardandoAprovacaoScreen(TO, { ...RESUMO, partySize: 12 }, tenant, AGORA),
+  },
+  {
+    keys: ['cliente.aprovada.corpo'],
+    monta: (tenant) => reservaAprovadaMessage(TO, tenant, DADOS_GRUPO),
+  },
+  {
+    keys: ['cliente.recusada.corpo', 'rotulos.botao.outroHorario'],
+    monta: (tenant) => reservaRecusadaMessage(TO, tenant, DADOS_GRUPO),
+  },
+  {
+    keys: ['cliente.semHorario.corpo'],
     monta: (tenant) => semHorarioScreen(TO, makeT(tenant.config)),
   },
   {
@@ -222,35 +265,39 @@ const CENAS: Cena[] = [
   },
   {
     keys: [
-      'cliente.limiteAgendamentos.corpo',
-      'cliente.limiteAgendamentos.um',
-      'cliente.limiteAgendamentos.varios',
-      'rotulos.botao.meus',
+      'cliente.limiteReservas.corpo',
+      'cliente.limiteReservas.um',
+      'cliente.limiteReservas.varios',
+      'rotulos.botao.minhas',
     ],
-    monta: (tenant) =>
-      limiteAgendamentosScreen(TO, makeT(tenant.config), tenant.config.booking.maxPerContact),
+    monta: (tenant) => limiteReservasScreen(TO, makeT(tenant.config), tenant.config.booking.maxPerContact),
   },
   {
-    keys: ['cliente.meusAgendamentos.titulo', 'rotulos.lista.verAgendamentos', 'rotulos.secao.agendamentos'],
+    keys: ['cliente.minhasReservas.titulo', 'rotulos.lista.verReservas', 'rotulos.secao.reservas', 'rotulos.status.pendente'],
     monta: (tenant) =>
-      meusAgendamentosScreen(TO, makeT(tenant.config), [AGENDAMENTO], tenant.timezone, AGORA),
+      minhasReservasScreen(
+        TO,
+        makeT(tenant.config),
+        [RESERVA, { ...RESERVA, id: 'res-2', partySize: 12, areaName: 'Salão', pending: true }],
+        tenant.timezone,
+        AGORA,
+      ),
   },
   {
-    keys: ['cliente.meusAgendamentos.vazio', 'rotulos.botao.agendarHorario'],
-    monta: (tenant) => meusAgendamentosScreen(TO, makeT(tenant.config), [], tenant.timezone, AGORA),
+    keys: ['cliente.minhasReservas.vazio', 'rotulos.botao.reservarMesa'],
+    monta: (tenant) => minhasReservasScreen(TO, makeT(tenant.config), [], tenant.timezone, AGORA),
   },
   {
-    keys: ['cliente.acoesAgendamento.corpo', 'rotulos.botao.remarcar'],
+    keys: ['cliente.acoesReserva.corpo', 'cliente.acoesReserva.pendente', 'rotulos.botao.remarcar'],
     monta: (tenant) =>
-      acoesAgendamentoScreen(TO, makeT(tenant.config), AGENDAMENTO, tenant.timezone, AGORA),
+      acoesReservaScreen(TO, makeT(tenant.config), { ...RESERVA, pending: true }, tenant.timezone, AGORA),
   },
   {
     keys: ['cliente.confirmarCancelamento.corpo', 'rotulos.botao.simCancelar', 'rotulos.botao.naoManter'],
-    monta: (tenant) =>
-      confirmarCancelamentoScreen(TO, makeT(tenant.config), AGENDAMENTO, tenant.timezone, AGORA),
+    monta: (tenant) => confirmarCancelamentoScreen(TO, makeT(tenant.config), RESERVA, tenant.timezone, AGORA),
   },
   {
-    keys: ['cliente.cancelado.corpo', 'rotulos.botao.marcarOutro'],
+    keys: ['cliente.cancelado.corpo', 'rotulos.botao.reservarOutra'],
     monta: (tenant) => canceladoScreen(TO, makeT(tenant.config)),
   },
   {
@@ -268,8 +315,12 @@ const CENAS: Cena[] = [
     monta: (tenant) => optInScreen(TO, makeT(tenant.config), tenant.config.brand.name),
   },
   {
-    keys: ['dono.aviso.novoAgendamento'],
-    monta: (tenant) => avisoNovoAgendamento(TO, tenant, DADOS_AVISO),
+    keys: ['dono.aviso.novaReserva'],
+    monta: (tenant) => avisoNovaReserva(TO, tenant, DADOS_AVISO),
+  },
+  {
+    keys: ['dono.aviso.pedidoAprovacao', 'rotulos.dono.aprovar', 'rotulos.dono.recusar'],
+    monta: (tenant) => pedidoAprovacao(TO, tenant, DADOS_GRUPO),
   },
   {
     keys: ['dono.aviso.cancelamento', 'dono.semNome'],
@@ -277,7 +328,7 @@ const CENAS: Cena[] = [
   },
   {
     keys: ['dono.aviso.atendente', 'dono.semNomeInicio'],
-    monta: (tenant) => avisoAtendente(TO, tenant, 'João Pereira', TO),
+    monta: (tenant) => avisoAtendente(TO, tenant, 'Marina Souza', TO),
   },
 ]
 
@@ -291,35 +342,39 @@ export const PREVIEW_KEYS: ReadonlySet<TextoKey> = new Set(PORCHAVE.keys())
 
 /** Valores de exemplo para a prévia por substituição, quando não há cena. */
 const EXEMPLOS: Record<string, string> = {
-  marca: 'Barbearia do Zé',
-  saudacao: 'Olá! Aqui é a Barbearia do Zé 💈',
-  servico: 'Corte + Barba',
-  barbeiro: 'Zé',
-  cliente: 'João Pereira',
-  data: 'sexta, 28/08 às 14:00',
+  marca: 'Cantina Bella Nonna',
+  saudacao: 'Olá! Aqui é a Cantina Bella Nonna 🍝',
+  cliente: 'Marina Souza',
+  pessoas: '4 pessoas',
+  ambiente: 'Varanda',
+  data: 'sexta, 28/08 às 20:00',
   dia: 'sexta, 28/08',
-  hora: '14:00',
+  hora: '20:00',
   horas: '2',
-  duracao: '1h',
-  preco: ' — R$ 75',
   endereco: 'Rua Exemplo, 123 — Centro',
   link: 'https://maps.google.com/?q=Rua+Exemplo,+123',
   formas: 'Pix, dinheiro, débito e crédito',
   minutos: '30',
   pausa: ' por 30 minutos',
   limite: '2',
-  quantos: '2 horários marcados',
+  maximo: '20',
+  quantos: '2 reservas',
   total: '3',
+  reservas: '12',
+  compareceram: '10',
+  faltaram: '1',
+  periodo: 'Hoje',
   aviso: '',
-  status: '',
-  confirmado: ' ✅',
-  periodo: 'o dia todo',
-  de: '12',
-  ate: '18',
-  nome: 'João',
+  status: ' ✅',
+  aprovacao: '',
+  de: '11',
+  ate: '17',
+  nome: 'Marina',
   waId: '5511988887777',
-  '1': 'João',
-  '2': 'Barbearia do Zé',
+  '1': 'Marina',
+  '2': 'Cantina Bella Nonna',
+  '3': '4 pessoas',
+  '4': 'sexta, 28/08 às 20:00',
 }
 
 export type Preview =
@@ -327,8 +382,8 @@ export type Preview =
   | { tipo: 'texto'; texto: string }
 
 /**
- * Aplica os textos que estão na tela (ainda não salvos) sobre o config da
- * barbearia — é o que faz o preview mostrar a edição, e não o que está no disco.
+ * Aplica os textos que estão na tela (ainda não salvos) sobre o config do
+ * restaurante — é o que faz o preview mostrar a edição, e não o que está no disco.
  */
 function comEdicoes(config: SiteConfig, editados: Record<string, string>): SiteConfig {
   const textos = { ...config.whatsapp.textos }
@@ -357,23 +412,24 @@ const TENANT_EXEMPLO = (config: SiteConfig): Tenant => ({
 /**
  * A tela que cada aba de conteúdo produz.
  *
- * Serve para o dono ver o efeito de mexer no catálogo: mudou o preço, a tela de
- * serviços muda junto; tirou um barbeiro, a lista de escolha encolhe.
+ * Serve para o dono ver o efeito de mexer no catálogo: mudou o preço, o
+ * cardápio do WhatsApp muda junto; tirou um ambiente, a lista de escolha encolhe.
  */
 const TELA_DA_SECAO: Record<string, (tenant: Tenant) => OutgoingMessage> = {
-  services: (tenant) => servicosScreen(TO, tenant, servicosDe(tenant.config)),
-  team: (tenant) =>
-    escolherBarbeiroScreen(
+  menu: (tenant) => cardapioScreen(TO, tenant),
+  areas: (tenant) =>
+    escolherAmbienteScreen(
       TO,
       makeT(tenant.config),
-      barbeirosDe(tenant.config),
-      tenant.config.services[0]?.name ?? 'Corte',
+      ambientesDe(tenant.config),
+      descricoesDe(tenant.config),
+      4,
     ),
+  team: (tenant) => menuScreen(TO, tenant),
   hours: (tenant) => horariosScreen(TO, tenant, AGORA),
   brand: (tenant) => menuScreen(TO, tenant),
   contact: (tenant) => enderecoScreen(TO, tenant),
-  booking: (tenant) =>
-    limiteAgendamentosScreen(TO, makeT(tenant.config), tenant.config.booking.maxPerContact),
+  booking: (tenant) => escolherPessoasScreen(TO, makeT(tenant.config), tenant.config.booking.maxPartySize),
   whatsapp: (tenant) => pagamentoScreen(TO, tenant),
 }
 

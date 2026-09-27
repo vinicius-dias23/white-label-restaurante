@@ -2,7 +2,7 @@
  * Limites de tamanho da Cloud API.
  *
  * A Meta recusa a mensagem inteira quando um único campo passa do limite — um
- * serviço chamado "Corte + Barba + Sobrancelha Premium" derrubaria o menu todo.
+ * prato chamado "Fettuccine ao Ragù de Costela com Burrata" derrubaria o menu todo.
  * Por isso todo texto que sai daqui passa por `fit()`, que corta com reticências
  * em vez de deixar o envio falhar na frente do cliente.
  *
@@ -62,7 +62,7 @@ export function fitBody(text: string, max: number = LIMITS.bodyText): string {
 
 /**
  * Erro de programação, não de dado: passar 4 botões é bug no código do menu,
- * não texto comprido do dono da barbearia. Falha alto para aparecer no teste.
+ * não texto comprido do dono do restaurante. Falha alto para aparecer no teste.
  */
 export function assertMax(count: number, max: number, what: string): void {
   if (count > max) {

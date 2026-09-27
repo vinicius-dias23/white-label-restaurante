@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   const tenants = await listTenants()
 
   if (tenants.length === 0) {
-    console.log('Nenhuma barbearia cadastrada. Rode: npm run tenant:sync')
+    console.log('Nenhum restaurante cadastrado. Rode: npm run tenant:sync')
     return
   }
 

@@ -4,7 +4,7 @@ import { updateDeliveryStatus } from '../db/repositories/messages.js'
 import { env } from '../env.js'
 import { errorMessage, log } from '../lib/logger.js'
 import { getTenantContext } from '../tenants/registry.js'
-import { normalizePhone } from '@barbearia/shared/lib/whatsapp'
+import { normalizePhone } from '@restaurante/shared/lib/whatsapp'
 import { isValidSignature, verifyChallenge } from './signature.js'
 import { normalizeInbound, type MessageStatus, type WebhookPayload, type WebhookValue } from './types.js'
 
@@ -86,7 +86,7 @@ export async function registerWebhook(app: FastifyInstance): Promise<void> {
 }
 
 /**
- * Um POST pode trazer vários eventos de várias barbearias. Cada um é tratado
+ * Um POST pode trazer vários eventos de vários restaurantes. Cada um é tratado
  * isolado: uma mensagem que estoura não pode impedir as outras de serem
  * atendidas.
  */
@@ -107,7 +107,7 @@ async function processChange(value: WebhookValue): Promise<void> {
   const phoneNumberId = value.metadata?.phone_number_id
   if (!phoneNumberId) return
 
-  // Status de entrega não precisa do contexto da barbearia.
+  // Status de entrega não precisa do contexto do restaurante.
   if (value.statuses?.length) {
     await Promise.all(value.statuses.map(processStatus))
   }

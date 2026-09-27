@@ -1,5 +1,5 @@
 {
-  "name": "@barbearia/whatsapp",
+  "name": "@restaurante/whatsapp",
   "private": true,
   "version": "2.0.0",
   "type": "module",
@@ -22,7 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@barbearia/shared": "*",
+    "@restaurante/shared": "*",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.1",
     "luxon": "^3.7.2",

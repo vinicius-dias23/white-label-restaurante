@@ -1,26 +1,27 @@
 import {
   findTenantByPhoneNumberId,
   getAccessToken,
-  listBarbers,
-  listServices,
+  listAreas,
+  listStaff,
 } from '../db/repositories/tenants.js'
 import { log } from '../lib/logger.js'
 import { WhatsAppClient, type WhatsAppSender } from '../whatsapp/client.js'
-import type { Barber, ServiceRecord, Tenant } from './types.js'
+import type { AreaRecord, StaffMember, Tenant } from './types.js'
 
 /**
- * Cache das barbearias em memória.
+ * Cache dos restaurantes em memória.
  *
- * Toda mensagem que chega precisa saber de qual barbearia é, quais serviços
- * existem e qual token usar. Buscar isso no banco a cada mensagem seria três
+ * Toda mensagem que chega precisa saber de qual restaurante é, quais ambientes
+ * existem, quem é da equipe e qual token usar. Buscar isso no banco a cada mensagem seria três
  * consultas por toque de botão. O cache vale por pouco tempo — mudou o config e
  * rodou `tenant:sync`, o menu novo aparece em no máximo um minuto.
  */
 
 export interface TenantContext {
   tenant: Tenant
-  barbers: Barber[]
-  services: ServiceRecord[]
+  /** Ambientes que aceitam reserva, na ordem do config. */
+  areas: AreaRecord[]
+  staff: StaffMember[]
   client: WhatsAppSender
 }
 
@@ -49,20 +50,20 @@ export async function getTenantContext(phoneNumberId: string): Promise<TenantCon
   if (!tenant) {
     // Acontece quando alguém aponta outro número para este webhook, ou quando o
     // tenant:sync ainda não rodou depois de trocar o número na Meta.
-    log.warn('mensagem para um número que não é de nenhuma barbearia cadastrada', { phoneNumberId })
+    log.warn('mensagem para um número que não é de nenhum restaurante cadastrado', { phoneNumberId })
     return null
   }
 
-  const [barbers, services, token] = await Promise.all([
-    listBarbers(tenant.id),
-    listServices(tenant.id),
+  const [areas, staff, token] = await Promise.all([
+    listAreas(tenant.id),
+    listStaff(tenant.id),
     getAccessToken(tenant.id),
   ])
 
   const context: TenantContext = {
     tenant,
-    barbers,
-    services,
+    areas,
+    staff,
     client: clientFactory(tenant.phoneNumberId, token),
   }
 

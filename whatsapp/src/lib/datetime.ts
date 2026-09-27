@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
 
 /**
- * Datas e horas em português, no fuso da barbearia.
+ * Datas e horas em português, no fuso do restaurante.
  *
  * Toda saída para o cliente passa por aqui. O resto do sistema trabalha em UTC:
  * a conversão acontece só na hora de escrever a mensagem.

@@ -1,6 +1,6 @@
-import type { SiteConfig } from '@barbearia/shared/config'
+import type { SiteConfig } from '@restaurante/shared/config'
 
-/** Uma barbearia atendida por este servidor. */
+/** Um restaurante atendido por este servidor. */
 export interface Tenant {
   id: string
   slug: string
@@ -10,32 +10,34 @@ export interface Tenant {
   wabaId: string
   ownerPhone: string
   timezone: string
-  /** `barbearia.config.json` já normalizado — o mesmo que o site usa. */
+  /** `restaurante.config.json` já normalizado — o mesmo que o site usa. */
   config: SiteConfig
   active: boolean
-  /** Enquanto estiver no futuro, o bot não responde a ninguém desta barbearia. */
+  /** Enquanto estiver no futuro, o bot não responde a ninguém deste restaurante. */
   botPausedUntil: Date | null
 }
 
-export interface Barber {
+/** Um ambiente do restaurante, espelhado do `areas[]` do config. */
+export interface AreaRecord {
   id: string
   slug: string
   name: string
-  /**
-   * WhatsApp do barbeiro, normalizado (só dígitos, com DDI). Vazio = ele não
-   * tem painel no bot. Vem do `team[].phone` do config pelo `tenant:sync`.
-   */
-  phone: string
+  /** Pessoas ao mesmo tempo. */
+  capacity: number
   active: boolean
   sortOrder: number
 }
 
-export interface ServiceRecord {
+/** Alguém da equipe, espelhado do `team[]` do config. */
+export interface StaffMember {
   id: string
   slug: string
   name: string
-  priceLabel: string
-  durationMin: number
+  /**
+   * WhatsApp do colaborador, normalizado (só dígitos, com DDI). Vazio = ele não
+   * tem painel no bot. Vem do `team[].phone` do config pelo `tenant:sync`.
+   */
+  phone: string
   active: boolean
   sortOrder: number
 }

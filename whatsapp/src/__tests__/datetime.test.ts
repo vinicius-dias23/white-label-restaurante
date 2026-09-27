@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CONFIG } from '@barbearia/shared/config'
+import { DEFAULT_CONFIG } from '@restaurante/shared/config'
 import {
   formatDateTime,
   formatDayLabel,
@@ -18,7 +18,7 @@ function fakeTenant(overrides: Partial<Tenant['config']['whatsapp']['messages']>
   return {
     id: 't1',
     slug: 'teste',
-    displayName: 'Barbearia Teste',
+    displayName: 'Cantina Teste',
     phoneNumberId: '123',
     wabaId: '456',
     ownerPhone: '5511999999999',
@@ -50,7 +50,7 @@ describe('datas em português', () => {
     expect(label.length).toBeLessThanOrEqual(24)
   })
 
-  it('converte para o fuso da barbearia, não o do servidor', () => {
+  it('converte para o fuso do restaurante, não o do servidor', () => {
     // 23:30 UTC ainda é o dia anterior em São Paulo.
     const instant = new Date('2026-08-22T02:30:00Z')
     expect(formatTime(instant, TZ)).toBe('23:30')
@@ -92,9 +92,11 @@ describe('silêncio noturno', () => {
     expect(nextAllowedTime(tarde, TZ, '21:00', '08:00').getTime()).toBe(tarde.getTime())
   })
 
-  it('usa a faixa configurada por barbearia', () => {
+  it('usa a faixa configurada por restaurante', () => {
     const tenant = fakeTenant()
-    expect(isInQuietHours(new Date('2026-08-21T23:00:00-03:00'), tenant)).toBe(true)
+    // Padrão do restaurante: 23:30 às 09:00 — o jantar termina tarde.
+    expect(isInQuietHours(new Date('2026-08-21T23:45:00-03:00'), tenant)).toBe(true)
+    expect(isInQuietHours(new Date('2026-08-21T23:00:00-03:00'), tenant)).toBe(false)
     expect(isInQuietHours(new Date('2026-08-21T10:00:00-03:00'), tenant)).toBe(false)
   })
 })
@@ -110,13 +112,13 @@ describe('liga/desliga das mensagens programadas', () => {
     expect(isMessageEnabled('aniversario', tenant)).toBe(false)
   })
 
-  it('a barbearia consegue desligar o que o servidor deixou ligado', () => {
+  it('o restaurante consegue desligar o que o servidor deixou ligado', () => {
     const tenant = fakeTenant({ lembrete2h: false })
     expect(isMessageEnabled('lembrete2h', tenant)).toBe(false)
     expect(isMessageEnabled('lembrete24h', tenant)).toBe(true)
   })
 
-  it('a barbearia NÃO consegue ligar o que o servidor deixou desligado', () => {
+  it('o restaurante NÃO consegue ligar o que o servidor deixou desligado', () => {
     // A trava do .env vem primeiro: é o operador do servidor que responde pela
     // conta na Meta e pela conta do mês.
     const tenant = fakeTenant({ reativacao: true })

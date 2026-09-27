@@ -14,24 +14,27 @@
 export type Screen =
   // Informativas
   | 'MENU'
-  | 'SERVICOS'
+  | 'CARDAPIO'
   | 'HORARIOS'
   | 'ENDERECO'
   | 'PAGAMENTO'
   | 'ATENDENTE'
-  // Agendamento
-  | 'ESCOLHER_SERVICO'
-  | 'ESCOLHER_BARBEIRO'
+  // Reserva
+  | 'ESCOLHER_PESSOAS'
+  | 'DIGITAR_PESSOAS'
+  | 'GRUPO_GRANDE'
+  | 'ESCOLHER_AMBIENTE'
   | 'ESCOLHER_DIA'
   | 'ESCOLHER_HORARIO'
   | 'CONFIRMAR'
-  | 'AGENDADO'
+  | 'RESERVADO'
+  | 'AGUARDANDO_APROVACAO'
   | 'SEM_HORARIO'
   | 'HORARIO_OCUPADO'
-  | 'LIMITE_AGENDAMENTOS'
-  // Agendamentos do cliente
-  | 'MEUS_AGENDAMENTOS'
-  | 'ACOES_AGENDAMENTO'
+  | 'LIMITE_RESERVAS'
+  // Reservas do cliente
+  | 'MINHAS_RESERVAS'
+  | 'ACOES_RESERVA'
   | 'CONFIRMAR_CANCELAMENTO'
   | 'CANCELADO'
   | 'CANCELAMENTO_TARDE'
@@ -43,14 +46,21 @@ export type Screen =
 
 /** O que o cliente já escolheu dentro do fluxo. Vive na coluna `context`. */
 export interface BotContext {
-  serviceId?: string
-  /** ID do barbeiro, ou "any" quando o cliente não tem preferência. */
-  barberId?: string
+  /** Quantas pessoas no grupo. */
+  partySize?: number
+  /** ID do ambiente, ou "any" quando o cliente não tem preferência. */
+  areaId?: string
+  /**
+   * Ambiente que veio escrito na mensagem do site ("...uma mesa na Varanda").
+   * Só uma dica: o handler usa se existir um ambiente com esse nome e o grupo
+   * couber nele; senão, pergunta normalmente.
+   */
+  areaHint?: string
   /** Dia local escolhido, "2026-08-22". */
   day?: string
   /** Horário escolhido, em ISO/UTC. */
   slot?: string
-  appointmentId?: string
+  reservationId?: string
   /** Paginação: quantos dias/horários já foram pulados. */
   dayOffset?: number
   timeOffset?: number
@@ -73,16 +83,17 @@ export interface Input {
 /** Prefixos dos IDs de botão. Mudá-los quebra conversas em andamento. */
 export const ACTION = {
   menu: 'menu',
-  agendar: 'menu:agendar',
-  meus: 'menu:meus',
-  servicos: 'menu:servicos',
+  reservar: 'menu:reservar',
+  minhas: 'menu:minhas',
+  cardapio: 'menu:cardapio',
   horarios: 'menu:horarios',
   endereco: 'menu:endereco',
   pagamento: 'menu:pagamento',
   atendente: 'menu:atendente',
-  service: 'svc:',
-  barber: 'brb:',
-  barberAny: 'brb:any',
+  party: 'pes:',
+  partyMore: 'pes:mais',
+  area: 'amb:',
+  areaAny: 'amb:any',
   day: 'day:',
   dayMore: 'day:mais',
   time: 'hor:',
@@ -90,15 +101,15 @@ export const ACTION = {
   confirm: 'ok:sim',
   changeTime: 'ok:trocar',
   abort: 'ok:nao',
-  appointment: 'apt:',
-  cancel: 'apt:cancelar:',
-  reschedule: 'apt:remarcar:',
+  reservation: 'res:',
+  cancel: 'res:cancelar:',
+  reschedule: 'res:remarcar:',
   cancelYes: 'del:sim:',
   cancelNo: 'del:nao',
   /**
-   * Botões que vêm dos templates de lembrete. Chegam com o ID do agendamento
+   * Botões que vêm dos templates de lembrete. Chegam com o ID da reserva
    * grudado ("lembrete:confirmo:<id>"), porque a resposta a um template não
-   * traz nenhum outro contexto — o cliente pode ter dois horários marcados.
+   * traz nenhum outro contexto — o cliente pode ter duas reservas.
    */
   presencaOk: 'lembrete:confirmo:',
   presencaCancel: 'lembrete:cancelar:',
@@ -106,21 +117,41 @@ export const ACTION = {
   optIn: 'optin',
 } as const
 
+/**
+ * Os botões "Aprovar" e "Recusar" do aviso de grupo grande que vai para o dono.
+ *
+ * Moram aqui, e não em `owner.ts`, porque quem monta o aviso é a fila de
+ * mensagens (`scheduler/messages.ts`) — que o `owner.ts` também importa, e o
+ * ciclo entre os dois não vale a pena.
+ */
+export const OWNER_DECISION = {
+  aprovar: 'dono:aprovar:',
+  recusar: 'dono:recusar:',
+} as const
+
 /** Palavras digitadas que o bot reconhece — as únicas, de propósito. */
 const KEYWORDS_MENU = ['menu', 'oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'início', 'inicio', 'voltar']
 const KEYWORDS_OPT_OUT = ['sair', 'parar', 'pare', 'stop', 'descadastrar', 'cancelar inscricao', 'cancelar inscrição']
 const KEYWORDS_OPT_IN = ['quero receber', 'aceito', 'voltar a receber']
-const KEYWORDS_AGENDAR = ['agendar', 'marcar', 'horario', 'horário']
+const KEYWORDS_RESERVAR = ['reservar', 'reserva', 'mesa', 'agendar', 'marcar']
+const KEYWORDS_CARDAPIO = ['cardapio', 'cardápio', 'pratos']
 
 /**
- * Frase que o próprio site coloca no link do WhatsApp (`@barbearia/shared/lib/whatsapp`):
- * "Olá, Barbearia do Zé! Gostaria de agendar: Corte + Barba (R$ 75)."
+ * Frase que o próprio site coloca no link do WhatsApp (`@restaurante/shared/lib/whatsapp`):
+ * "Olá, Cantina Bella Nonna! Gostaria de reservar uma mesa na Varanda."
  *
  * Não é interpretação de texto livre — é reconhecer a nossa própria mensagem.
- * Sem isto, quem toca em "Agendar no WhatsApp" no site é recebido com um
+ * Sem isto, quem toca em "Reservar mesa no WhatsApp" no site é recebido com um
  * "Não entendi", que é a pior primeira impressão possível.
  */
-const FRASE_DO_SITE = 'gostaria de agendar'
+const FRASE_DO_SITE = 'gostaria de reservar'
+const FRASE_DO_SITE_AMBIENTE = 'uma mesa na '
+
+/**
+ * Número digitado na tela "Quantas pessoas?", depois de tocar em "9 ou mais".
+ * É a única tela que aceita texto — e aceita só isto: "12", "12 pessoas".
+ */
+const NUMERO_DE_PESSOAS = /^(\d{1,3})(\s*pessoas?)?$/
 
 function normalizeText(text: string): string {
   return text
@@ -134,10 +165,19 @@ function suffix(action: string, prefix: string): string {
   return action.slice(prefix.length)
 }
 
-/** Reinicia o fluxo de agendamento sem perder o resto do contexto. */
+/** Reinicia o fluxo de reserva sem perder o resto do contexto. */
 function clearBooking(context: BotContext): BotContext {
-  const { appointmentId } = context
-  return appointmentId ? { appointmentId } : {}
+  const { reservationId } = context
+  return reservationId ? { reservationId } : {}
+}
+
+/** "Olá, X! Gostaria de reservar uma mesa na Varanda." → "Varanda". */
+function areaHintFrom(rawText: string): string | undefined {
+  const lower = rawText.toLowerCase()
+  const at = lower.indexOf(FRASE_DO_SITE_AMBIENTE)
+  if (at < 0) return undefined
+  const hint = rawText.slice(at + FRASE_DO_SITE_AMBIENTE.length).replace(/[.!]+\s*$/, '').trim()
+  return hint || undefined
 }
 
 export function decide(input: Input): Decision {
@@ -146,6 +186,16 @@ export function decide(input: Input): Decision {
   // --- Texto digitado: nunca interpretado, sempre traduzido para uma tela ----
   if (!action) {
     const text = normalizeText(input.text)
+
+    if (input.screen === 'DIGITAR_PESSOAS') {
+      const match = NUMERO_DE_PESSOAS.exec(text)
+      if (match?.[1]) {
+        return {
+          screen: 'ESCOLHER_AMBIENTE',
+          context: { ...context, partySize: Number(match[1]) },
+        }
+      }
+    }
 
     if (KEYWORDS_OPT_OUT.some((word) => text === word)) {
       return { screen: 'OPT_OUT', context: clearBooking(context) }
@@ -156,8 +206,23 @@ export function decide(input: Input): Decision {
     if (KEYWORDS_MENU.some((word) => text === word)) {
       return { screen: 'MENU', context: clearBooking(context) }
     }
-    if (KEYWORDS_AGENDAR.some((word) => text === word) || text.includes(FRASE_DO_SITE)) {
-      return { screen: 'ESCOLHER_SERVICO', context: clearBooking(context) }
+    if (text.includes(FRASE_DO_SITE)) {
+      const areaHint = areaHintFrom(input.text)
+      return {
+        screen: 'ESCOLHER_PESSOAS',
+        context: areaHint ? { ...clearBooking(context), areaHint } : clearBooking(context),
+      }
+    }
+    if (KEYWORDS_RESERVAR.some((word) => text === word)) {
+      return { screen: 'ESCOLHER_PESSOAS', context: clearBooking(context) }
+    }
+    if (KEYWORDS_CARDAPIO.some((word) => text === normalizeText(word))) {
+      return { screen: 'CARDAPIO', context }
+    }
+    // Esperava o número de pessoas e veio outra coisa: pergunta de novo, em vez
+    // de jogar o cliente de volta para o menu no meio da reserva.
+    if (input.screen === 'DIGITAR_PESSOAS') {
+      return { screen: 'DIGITAR_PESSOAS', context }
     }
     // Qualquer outra coisa — inclusive áudio, foto e figurinha — cai aqui.
     return { screen: 'NAO_ENTENDI', context }
@@ -168,14 +233,14 @@ export function decide(input: Input): Decision {
     case action === ACTION.menu:
       return { screen: 'MENU', context: clearBooking(context) }
 
-    case action === ACTION.agendar:
-      return { screen: 'ESCOLHER_SERVICO', context: clearBooking(context) }
+    case action === ACTION.reservar:
+      return { screen: 'ESCOLHER_PESSOAS', context: clearBooking(context) }
 
-    case action === ACTION.meus:
-      return { screen: 'MEUS_AGENDAMENTOS', context: clearBooking(context) }
+    case action === ACTION.minhas:
+      return { screen: 'MINHAS_RESERVAS', context: clearBooking(context) }
 
-    case action === ACTION.servicos:
-      return { screen: 'SERVICOS', context }
+    case action === ACTION.cardapio:
+      return { screen: 'CARDAPIO', context }
 
     case action === ACTION.horarios:
       return { screen: 'HORARIOS', context }
@@ -195,18 +260,22 @@ export function decide(input: Input): Decision {
     case action === ACTION.optIn:
       return { screen: 'OPT_IN', context }
 
-    // Serviço escolhido → escolhe o barbeiro
-    case action.startsWith(ACTION.service):
+    // "9 ou mais" → o cliente digita o número
+    case action === ACTION.partyMore:
+      return { screen: 'DIGITAR_PESSOAS', context }
+
+    // Número de pessoas escolhido → escolhe o ambiente
+    case action.startsWith(ACTION.party):
       return {
-        screen: 'ESCOLHER_BARBEIRO',
-        context: { ...clearBooking(context), serviceId: suffix(action, ACTION.service) },
+        screen: 'ESCOLHER_AMBIENTE',
+        context: { ...context, partySize: Number(suffix(action, ACTION.party)) || undefined },
       }
 
-    // Barbeiro escolhido → escolhe o dia
-    case action.startsWith(ACTION.barber):
+    // Ambiente escolhido → escolhe o dia
+    case action.startsWith(ACTION.area):
       return {
         screen: 'ESCOLHER_DIA',
-        context: { ...context, barberId: suffix(action, ACTION.barber), dayOffset: 0 },
+        context: { ...context, areaId: suffix(action, ACTION.area), dayOffset: 0 },
       }
 
     // "Ver mais dias" — avança a página sem mudar de tela
@@ -232,9 +301,10 @@ export function decide(input: Input): Decision {
       return { screen: 'CONFIRMAR', context: { ...context, slot: suffix(action, ACTION.time) } }
 
     case action === ACTION.confirm:
-      // O handler tenta reservar de verdade; se o horário já tiver sido pego,
-      // ele troca esta tela por HORARIO_OCUPADO.
-      return { screen: 'AGENDADO', context }
+      // O handler tenta reservar de verdade; se o ambiente tiver enchido, ele
+      // troca esta tela por HORARIO_OCUPADO — e, para grupo grande, por
+      // AGUARDANDO_APROVACAO.
+      return { screen: 'RESERVADO', context }
 
     case action === ACTION.changeTime:
       return { screen: 'ESCOLHER_DIA', context: { ...context, day: undefined, slot: undefined, dayOffset: 0 } }
@@ -245,43 +315,43 @@ export function decide(input: Input): Decision {
     case action.startsWith(ACTION.cancel):
       return {
         screen: 'CONFIRMAR_CANCELAMENTO',
-        context: { ...context, appointmentId: suffix(action, ACTION.cancel) },
+        context: { ...context, reservationId: suffix(action, ACTION.cancel) },
       }
 
     case action.startsWith(ACTION.reschedule):
-      // Remarcar é cancelar + agendar de novo: começa um fluxo limpo,
-      // guardando qual agendamento sai quando o novo for confirmado.
+      // Remarcar é cancelar + reservar de novo: começa um fluxo limpo,
+      // guardando qual reserva sai quando a nova for confirmada.
       return {
-        screen: 'ESCOLHER_SERVICO',
-        context: { appointmentId: suffix(action, ACTION.reschedule) },
+        screen: 'ESCOLHER_PESSOAS',
+        context: { reservationId: suffix(action, ACTION.reschedule) },
       }
 
     case action.startsWith(ACTION.cancelYes):
       return {
         screen: 'CANCELADO',
-        context: { ...context, appointmentId: suffix(action, ACTION.cancelYes) },
+        context: { ...context, reservationId: suffix(action, ACTION.cancelYes) },
       }
 
     case action === ACTION.cancelNo:
-      return { screen: 'MEUS_AGENDAMENTOS', context: clearBooking(context) }
+      return { screen: 'MINHAS_RESERVAS', context: clearBooking(context) }
 
-    case action.startsWith(ACTION.appointment):
+    case action.startsWith(ACTION.reservation):
       return {
-        screen: 'ACOES_AGENDAMENTO',
-        context: { ...context, appointmentId: suffix(action, ACTION.appointment) },
+        screen: 'ACOES_RESERVA',
+        context: { ...context, reservationId: suffix(action, ACTION.reservation) },
       }
 
     // Botões do template de lembrete
     case action.startsWith(ACTION.presencaOk):
       return {
         screen: 'PRESENCA_CONFIRMADA',
-        context: { ...context, appointmentId: suffix(action, ACTION.presencaOk) },
+        context: { ...context, reservationId: suffix(action, ACTION.presencaOk) },
       }
 
     case action.startsWith(ACTION.presencaCancel):
       return {
         screen: 'CONFIRMAR_CANCELAMENTO',
-        context: { ...context, appointmentId: suffix(action, ACTION.presencaCancel) },
+        context: { ...context, reservationId: suffix(action, ACTION.presencaCancel) },
       }
 
     default:

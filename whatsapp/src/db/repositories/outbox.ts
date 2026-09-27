@@ -12,7 +12,7 @@ import { query, queryOne, transaction } from '../pool.js'
  *   · `dedupe_key` único garante que ninguém receba o mesmo lembrete duas vezes,
  *     mesmo se o job rodar de novo;
  *   · a mensagem pode ser descartada até o último instante — se o cliente
- *     cancelar o corte, o lembrete some da fila em vez de chegar sem sentido.
+ *     cancelar a reserva, o lembrete some da fila em vez de chegar sem sentido.
  */
 
 export type OutboxKind =
@@ -27,7 +27,7 @@ export interface OutboxItem {
   id: string
   tenantId: string
   contactId: string
-  appointmentId: string | null
+  reservationId: string | null
   kind: OutboxKind
   payload: OutgoingMessage
   scheduledFor: Date
@@ -38,7 +38,7 @@ interface OutboxRow {
   id: string
   tenant_id: string
   contact_id: string
-  appointment_id: string | null
+  reservation_id: string | null
   kind: OutboxKind
   payload: OutgoingMessage
   scheduled_for: Date
@@ -49,7 +49,7 @@ const toItem = (row: OutboxRow): OutboxItem => ({
   id: row.id,
   tenantId: row.tenant_id,
   contactId: row.contact_id,
-  appointmentId: row.appointment_id,
+  reservationId: row.reservation_id,
   kind: row.kind,
   payload: row.payload,
   scheduledFor: row.scheduled_for,
@@ -59,11 +59,11 @@ const toItem = (row: OutboxRow): OutboxItem => ({
 export interface EnqueueInput {
   tenantId: string
   contactId: string
-  appointmentId?: string | null
+  reservationId?: string | null
   kind: OutboxKind
   payload: OutgoingMessage
   scheduledFor: Date
-  /** Identidade da mensagem: "<agendamento>:<tipo>". Repetido = ignorado. */
+  /** Identidade da mensagem: "<reserva>:<tipo>". Repetido = ignorado. */
   dedupeKey: string
 }
 
@@ -71,7 +71,7 @@ export interface EnqueueInput {
 export async function enqueue(input: EnqueueInput): Promise<boolean> {
   const row = await queryOne<{ id: string }>(
     `
-    INSERT INTO outbox (tenant_id, contact_id, appointment_id, kind, payload, scheduled_for, dedupe_key)
+    INSERT INTO outbox (tenant_id, contact_id, reservation_id, kind, payload, scheduled_for, dedupe_key)
     VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (dedupe_key) DO NOTHING
     RETURNING id
@@ -79,7 +79,7 @@ export async function enqueue(input: EnqueueInput): Promise<boolean> {
     [
       input.tenantId,
       input.contactId,
-      input.appointmentId ?? null,
+      input.reservationId ?? null,
       input.kind,
       JSON.stringify(input.payload),
       input.scheduledFor,
@@ -111,7 +111,7 @@ export async function claimDue(limit: number, workerId: string, now: Date = new 
       SET status = 'sending', locked_at = now(), locked_by = $3, attempts = o.attempts + 1
       FROM due
       WHERE o.id = due.id
-      RETURNING o.id, o.tenant_id, o.contact_id, o.appointment_id, o.kind,
+      RETURNING o.id, o.tenant_id, o.contact_id, o.reservation_id, o.kind,
                 o.payload, o.scheduled_for, o.attempts
       `,
       [now, limit, workerId],
@@ -155,7 +155,7 @@ export async function markFailed(
   )
 }
 
-/** Não enviada de propósito: cliente saiu da lista, agendamento cancelado, etc. */
+/** Não enviada de propósito: cliente saiu da lista, reserva cancelada, etc. */
 export async function markSkipped(id: string, reason: string): Promise<void> {
   await query(`UPDATE outbox SET status = 'skipped', last_error = $2, locked_at = NULL WHERE id = $1`, [
     id,
@@ -164,15 +164,15 @@ export async function markSkipped(id: string, reason: string): Promise<void> {
 }
 
 /**
- * Cancelou o corte: os lembretes que ainda não saíram somem da fila.
+ * Cancelou a reserva: os lembretes que ainda não saíram somem da fila.
  * Sem isto o cliente receberia "seu horário é amanhã às 14h" depois de cancelar.
  */
-export async function cancelPendingForAppointment(appointmentId: string): Promise<number> {
+export async function cancelPendingForReservation(reservationId: string): Promise<number> {
   const rows = await query<{ id: string }>(
-    `UPDATE outbox SET status = 'skipped', last_error = 'agendamento cancelado'
-     WHERE appointment_id = $1 AND status = 'pending'
+    `UPDATE outbox SET status = 'skipped', last_error = 'reserva cancelada'
+     WHERE reservation_id = $1 AND status = 'pending'
      RETURNING id`,
-    [appointmentId],
+    [reservationId],
   )
   return rows.length
 }

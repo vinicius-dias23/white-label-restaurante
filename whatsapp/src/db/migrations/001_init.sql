@@ -1,66 +1,79 @@
 -- Estrutura inicial da integração com o WhatsApp.
 --
--- Duas coisas neste arquivo carregam a corretude do sistema inteiro:
+-- Duas coisas carregam a corretude do sistema inteiro:
 --
---   1. A constraint EXCLUDE em `appointments`: o banco RECUSA fisicamente dois
---      agendamentos sobrepostos para o mesmo barbeiro. Dois clientes tocando no
---      mesmo horário no mesmo segundo — um confirma, o outro volta para a lista.
---      Não depende de a aplicação acertar a ordem das checagens.
+--   1. A lotação de cada ambiente. Quem garante que o Salão não recebe 44
+--      pessoas com lugar para 40 é o `createReservation`: ele trava a linha do
+--      ambiente (SELECT ... FOR UPDATE) antes de somar quem já está reservado.
+--      Dois clientes confirmando o último lugar no mesmo segundo — um entra, o
+--      outro volta para a lista. Não depende da ordem das checagens.
 --
 --   2. Os UNIQUE em `wa_message_id` e `outbox.dedupe_key`: a Meta reenvia o
 --      webhook quando não recebe 200 rápido. Sem eles o cliente é atendido duas
 --      vezes e recebe dois lembretes.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS btree_gist;   -- necessário para "barber_id WITH =" no EXCLUDE
 
 
 -- ---------------------------------------------------------------------------
--- Barbearias
+-- Restaurantes
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE tenants (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug              TEXT NOT NULL UNIQUE,
   display_name      TEXT NOT NULL DEFAULT '',
-  -- É por aqui que o webhook descobre de qual barbearia é a mensagem.
+  -- É por aqui que o webhook descobre de qual restaurante é a mensagem.
   phone_number_id   TEXT NOT NULL UNIQUE,
   waba_id           TEXT NOT NULL DEFAULT '',
   -- Token da Meta criptografado com AES-256-GCM (APP_ENCRYPTION_KEY).
   access_token_enc  BYTEA,
   owner_phone       TEXT NOT NULL DEFAULT '',
   timezone          TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
-  -- barbearia.config.json já normalizado, do jeito que o site também lê.
+  -- restaurante.config.json já normalizado, do jeito que o site também lê.
   config            JSONB NOT NULL DEFAULT '{}'::jsonb,
   config_hash       TEXT NOT NULL DEFAULT '',
   active            BOOLEAN NOT NULL DEFAULT TRUE,
-  -- O dono pode calar o bot para a barbearia inteira ("Pausar bot" no menu dele).
+  -- O dono pode calar o bot para o restaurante inteiro ("Pausar bot" no menu dele).
   bot_paused_until  TIMESTAMPTZ,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE barbers (
+-- Os ambientes (Salão, Varanda...). É aqui que mora a lotação.
+CREATE TABLE areas (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   slug        TEXT NOT NULL,
   name        TEXT NOT NULL,
+  -- Quantas PESSOAS cabem ao mesmo tempo. Não é número de mesas.
+  capacity    INTEGER NOT NULL CHECK (capacity >= 0),
   active      BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order  INTEGER NOT NULL DEFAULT 0,
   UNIQUE (tenant_id, slug)
 );
 
-CREATE TABLE services (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  slug          TEXT NOT NULL,
-  name          TEXT NOT NULL,
-  price_label   TEXT NOT NULL DEFAULT '',
-  duration_min  INTEGER NOT NULL,
-  active        BOOLEAN NOT NULL DEFAULT TRUE,
-  sort_order    INTEGER NOT NULL DEFAULT 0,
+-- A equipe do `team[]` do config. Quem tem telefone ganha o painel da recepção.
+CREATE TABLE staff (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  slug        TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  -- Guardado NORMALIZADO (só dígitos, com DDI), igual a `tenants.owner_phone`.
+  -- No config ele fica cru, do jeito que o dono digitou — quem normaliza é o
+  -- `tenant:sync`, que é onde existe o DEFAULT_COUNTRY_CODE.
+  --
+  -- Sem UNIQUE parcial em (tenant_id, phone) de propósito: ele faria o
+  -- tenant:sync morrer com um 23505 cru quando o dono repetisse um número no
+  -- estúdio. Quem avisa sobre isso é o normalizador, com uma frase que se entende.
+  phone       TEXT NOT NULL DEFAULT '',
+  active      BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
   UNIQUE (tenant_id, slug)
 );
+
+-- A busca que roda a cada mensagem recebida.
+CREATE INDEX staff_tenant_phone_idx ON staff (tenant_id, phone) WHERE phone <> '';
 
 
 -- ---------------------------------------------------------------------------
@@ -93,7 +106,7 @@ CREATE TABLE conversations (
   contact_id        UUID NOT NULL UNIQUE REFERENCES contacts(id) ON DELETE CASCADE,
   -- Nó atual da máquina de estados do menu.
   state             TEXT NOT NULL DEFAULT 'MENU',
-  -- O que o cliente já escolheu no fluxo (serviço, barbeiro, dia...).
+  -- O que o cliente já escolheu no fluxo (pessoas, ambiente, dia...).
   context           JSONB NOT NULL DEFAULT '{}'::jsonb,
   state_updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   -- Enquanto estiver no futuro, o bot fica calado: tem humano atendendo.
@@ -103,43 +116,51 @@ CREATE TABLE conversations (
 
 
 -- ---------------------------------------------------------------------------
--- Agenda
+-- Reservas
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE appointments (
+CREATE TABLE reservations (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   contact_id    UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  barber_id     UUID NOT NULL REFERENCES barbers(id) ON DELETE CASCADE,
-  service_id    UUID NOT NULL REFERENCES services(id) ON DELETE RESTRICT,
+  area_id       UUID NOT NULL REFERENCES areas(id) ON DELETE CASCADE,
+  party_size    INTEGER NOT NULL CHECK (party_size > 0),
   starts_at     TIMESTAMPTZ NOT NULL,
+  -- Até quando a mesa fica com o grupo (`booking.durationMin`). É o que devolve
+  -- os lugares para a lotação do ambiente.
   ends_at       TIMESTAMPTZ NOT NULL,
+  -- pending   grupo grande esperando o dono aprovar — já SEGURA os lugares
+  -- scheduled confirmada pelo sistema
+  -- confirmed o cliente respondeu "Confirmo" no lembrete
+  -- arrived   a recepção marcou que o grupo chegou
+  -- completed já passou (o job diário carimba)
+  -- no_show   a recepção marcou que o grupo não veio
+  -- cancelled o cliente (ou o dono) cancelou
+  -- declined  o dono recusou o pedido de um grupo grande
   status        TEXT NOT NULL DEFAULT 'scheduled'
-                CHECK (status IN ('scheduled', 'confirmed', 'cancelled', 'completed', 'no_show')),
+                CHECK (status IN ('pending', 'scheduled', 'confirmed', 'arrived',
+                                  'completed', 'no_show', 'cancelled', 'declined')),
   source        TEXT NOT NULL DEFAULT 'whatsapp',
   notes         TEXT NOT NULL DEFAULT '',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  arrived_at    TIMESTAMPTZ,
   cancelled_at  TIMESTAMPTZ,
   cancel_reason TEXT NOT NULL DEFAULT '',
-  CHECK (ends_at > starts_at),
-
-  -- A trava contra dupla marcação. Só vale para agendamentos vivos: cancelado
-  -- libera o horário na hora.
-  EXCLUDE USING gist (
-    barber_id WITH =,
-    tstzrange(starts_at, ends_at) WITH &&
-  ) WHERE (status IN ('scheduled', 'confirmed'))
+  CHECK (ends_at > starts_at)
 );
 
-CREATE INDEX appointments_agenda_idx ON appointments (tenant_id, starts_at)
-  WHERE status IN ('scheduled', 'confirmed');
-CREATE INDEX appointments_contact_idx ON appointments (contact_id, starts_at DESC);
+-- As reservas que ocupam lugar: é por aqui que a lotação é somada.
+CREATE INDEX reservations_area_live_idx ON reservations (area_id, starts_at, ends_at)
+  WHERE status IN ('pending', 'scheduled', 'confirmed', 'arrived');
+CREATE INDEX reservations_agenda_idx ON reservations (tenant_id, starts_at);
+CREATE INDEX reservations_contact_idx ON reservations (contact_id, starts_at DESC);
 
--- Folgas, feriados e bloqueios manuais. barber_id NULL = fecha para todo mundo.
+-- Feriados, eventos fechados e bloqueios manuais. area_id NULL = fecha o
+-- restaurante inteiro.
 CREATE TABLE time_blocks (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  barber_id   UUID REFERENCES barbers(id) ON DELETE CASCADE,
+  area_id     UUID REFERENCES areas(id) ON DELETE CASCADE,
   starts_at   TIMESTAMPTZ NOT NULL,
   ends_at     TIMESTAMPTZ NOT NULL,
   reason      TEXT NOT NULL DEFAULT '',
@@ -160,8 +181,8 @@ CREATE TABLE outbox (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   contact_id      UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  appointment_id  UUID REFERENCES appointments(id) ON DELETE CASCADE,
-  -- lembrete24h | lembrete2h | posAtendimento | reativacao | aniversario | aviso_dono
+  reservation_id  UUID REFERENCES reservations(id) ON DELETE CASCADE,
+  -- lembrete24h | lembrete2h | posAtendimento | reativacao | aniversario | avisoDono
   kind            TEXT NOT NULL,
   payload         JSONB NOT NULL,
   scheduled_for   TIMESTAMPTZ NOT NULL,
@@ -170,7 +191,7 @@ CREATE TABLE outbox (
   attempts        INTEGER NOT NULL DEFAULT 0,
   last_error      TEXT NOT NULL DEFAULT '',
   wa_message_id   TEXT,
-  -- "<appointment_id>:<kind>". O UNIQUE é o que impede lembrete duplicado.
+  -- "<reservation_id>:<kind>". O UNIQUE é o que impede lembrete duplicado.
   dedupe_key      TEXT NOT NULL UNIQUE,
   locked_at       TIMESTAMPTZ,
   locked_by       TEXT,

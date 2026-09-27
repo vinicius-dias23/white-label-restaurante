@@ -1,11 +1,10 @@
-import { normalizeConfig, type SiteConfig } from '@barbearia/shared/config'
-import { normalizePhone } from '@barbearia/shared/lib/whatsapp'
-import { resolveDuration } from '../../booking/duration.js'
+import { normalizeConfig, type SiteConfig } from '@restaurante/shared/config'
+import { normalizePhone } from '@restaurante/shared/lib/whatsapp'
 import { env } from '../../env.js'
 import { decryptSecret, encryptSecret } from '../../lib/crypto.js'
 import { log } from '../../lib/logger.js'
 import { resolveSlugs } from '../../tenants/slug.js'
-import type { Barber, ServiceRecord, Tenant } from '../../tenants/types.js'
+import type { AreaRecord, StaffMember, Tenant } from '../../tenants/types.js'
 import { query, queryOne, transaction } from '../pool.js'
 
 interface TenantRow {
@@ -70,7 +69,7 @@ export async function getAccessToken(tenantId: string): Promise<string> {
     [tenantId],
   )
   if (!row?.access_token_enc) {
-    throw new Error('barbearia sem token cadastrado — rode: npm run tenant:add')
+    throw new Error('restaurante sem token cadastrado — rode: npm run tenant:add')
   }
   return decryptSecret(row.access_token_enc)
 }
@@ -88,14 +87,14 @@ export interface TenantInput {
 }
 
 /**
- * Cria ou atualiza a barbearia. Chamado pelo `tenant:sync` a cada deploy: o
- * `barbearia.config.json` é a fonte da verdade, o banco é o espelho dele.
+ * Cria ou atualiza o restaurante. Chamado pelo `tenant:sync` a cada deploy: o
+ * `restaurante.config.json` é a fonte da verdade, o banco é o espelho dele.
  */
 export async function upsertTenant(input: TenantInput): Promise<Tenant> {
   const encrypted = input.accessToken ? encryptSecret(input.accessToken) : null
 
   const row = await upsertRow(input, encrypted)
-  if (!row) throw new Error('falha ao gravar a barbearia')
+  if (!row) throw new Error('falha ao gravar o restaurante')
   return toTenant(row)
 }
 
@@ -106,9 +105,9 @@ async function upsertRow(input: TenantInput, encrypted: Buffer | null): Promise<
   try {
     return await runUpsert(input, encrypted)
   } catch (error) {
-    // O conflito por `slug` o próprio ON CONFLICT resolve. O que sobra é outra
-    // barbearia já usando este phone_number_id — acontece ao renomear o slug de
-    // uma barbearia já cadastrada, e o erro cru do banco não explica nada.
+    // O conflito por `slug` o próprio ON CONFLICT resolve. O que sobra é outro
+    // restaurante já usando este phone_number_id — acontece ao renomear o slug
+    // de um restaurante já cadastrado, e o erro cru do banco não explica nada.
     if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
       const dono = await queryOne<{ slug: string }>(
         'SELECT slug FROM tenants WHERE phone_number_id = $1',
@@ -116,10 +115,10 @@ async function upsertRow(input: TenantInput, encrypted: Buffer | null): Promise<
       )
       if (dono && dono.slug !== input.slug) {
         throw new Error(
-          `o número ${input.phoneNumberId} já está cadastrado na barbearia "${dono.slug}".\n` +
-            `  Cada barbearia precisa do seu próprio número.\n` +
-            `  · Era para ser a mesma barbearia? Renomeie a pasta tenants/${input.slug}/ para tenants/${dono.slug}/\n` +
-            `  · São barbearias diferentes? Use o phone_number_id do outro número em TENANT_PHONE_NUMBER_ID`,
+          `o número ${input.phoneNumberId} já está cadastrado no restaurante "${dono.slug}".\n` +
+            `  Cada restaurante precisa do seu próprio número.\n` +
+            `  · Era para ser o mesmo restaurante? Renomeie a pasta tenants/${input.slug}/ para tenants/${dono.slug}/\n` +
+            `  · São restaurantes diferentes? Use o phone_number_id do outro número em TENANT_PHONE_NUMBER_ID`,
         )
       }
     }
@@ -162,69 +161,91 @@ async function runUpsert(input: TenantInput, encrypted: Buffer | null): Promise<
 }
 
 /**
- * Espelha `team` e `services` do config nas tabelas de agenda.
+ * Espelha `areas` e `team` do config nas tabelas do banco.
  *
- * Quem sumiu do config é DESATIVADO, nunca apagado: apagar levaria junto os
- * agendamentos históricos daquele barbeiro. Desativado some do menu e continua
- * no histórico.
+ * Quem sumiu do config é DESATIVADO, nunca apagado: apagar um ambiente levaria
+ * junto o histórico de reservas dele. Desativado some do menu e continua no
+ * histórico — e as reservas futuras que já existiam continuam valendo.
  */
-export async function syncCatalog(tenant: Tenant): Promise<{ barbers: number; services: number; fallbacks: string[] }> {
-  const bookableTeam = tenant.config.team.filter((member) => member.bookable)
-  // Barbearia sem equipe no config vira uma agenda única com o nome da casa.
-  // Ela não ganha telefone: quem comanda essa barbearia é o dono, e ele já tem
-  // o painel dele.
-  const team: { slug: string; name: string; phone?: string }[] =
-    bookableTeam.length > 0 ? bookableTeam : [{ slug: '', name: tenant.config.brand.name }]
-  const barberSlugs = resolveSlugs(team, 'barbeiro')
+export async function syncCatalog(tenant: Tenant): Promise<{ areas: number; staff: number }> {
+  const bookable = tenant.config.areas.filter((area) => area.bookable && area.capacity > 0)
+  // Restaurante sem ambiente no config vira um salão único com o nome da casa.
+  // Sem lotação definida não dá para recusar ninguém, então ele nasce com a
+  // lotação padrão do primeiro ambiente de demonstração — e o `tenant:sync`
+  // avisa, porque é quase certo que falta configurar.
+  const areas: { slug: string; name: string; capacity: number }[] =
+    bookable.length > 0 ? bookable : [{ slug: '', name: tenant.config.brand.name, capacity: 40 }]
+  const areaSlugs = resolveSlugs(areas, 'ambiente')
 
-  const serviceSlugs = resolveSlugs(tenant.config.services, 'servico')
-  const fallbacks: string[] = []
+  const team = tenant.config.team
+  const staffSlugs = resolveSlugs(team, 'colaborador')
 
   await transaction(async (client) => {
-    await client.query('UPDATE barbers SET active = FALSE WHERE tenant_id = $1', [tenant.id])
-    await client.query('UPDATE services SET active = FALSE WHERE tenant_id = $1', [tenant.id])
+    await client.query('UPDATE areas SET active = FALSE WHERE tenant_id = $1', [tenant.id])
+    await client.query('UPDATE staff SET active = FALSE WHERE tenant_id = $1', [tenant.id])
+
+    for (const [index, area] of areas.entries()) {
+      await client.query(
+        `
+        INSERT INTO areas (tenant_id, slug, name, capacity, active, sort_order)
+        VALUES ($1, $2, $3, $4, TRUE, $5)
+        ON CONFLICT (tenant_id, slug)
+        DO UPDATE SET name = EXCLUDED.name, capacity = EXCLUDED.capacity,
+                      active = TRUE, sort_order = EXCLUDED.sort_order
+        `,
+        [tenant.id, areaSlugs[index], area.name, area.capacity, index],
+      )
+    }
 
     for (const [index, member] of team.entries()) {
       // O config guarda o telefone cru ("(11) 91234-5678"); o banco guarda só
       // dígitos com DDI, porque é assim que o `wa_id` da Meta chega e é assim
-      // que a comparação no menu do barbeiro vira igualdade simples.
-      const phone = normalizePhone(member.phone ?? '', env.defaultCountryCode)
+      // que a comparação no painel da recepção vira igualdade simples.
+      const phone = normalizePhone(member.phone, env.defaultCountryCode)
 
       await client.query(
         `
-        INSERT INTO barbers (tenant_id, slug, name, phone, active, sort_order)
+        INSERT INTO staff (tenant_id, slug, name, phone, active, sort_order)
         VALUES ($1, $2, $3, $4, TRUE, $5)
         ON CONFLICT (tenant_id, slug)
         DO UPDATE SET name = EXCLUDED.name, phone = EXCLUDED.phone,
                       active = TRUE, sort_order = EXCLUDED.sort_order
         `,
-        [tenant.id, barberSlugs[index], member.name, phone, index],
-      )
-    }
-
-    for (const [index, service] of tenant.config.services.entries()) {
-      const duration = resolveDuration(service, tenant.config.booking.defaultDurationMin)
-      if (duration.fallback) fallbacks.push(service.name)
-
-      await client.query(
-        `
-        INSERT INTO services (tenant_id, slug, name, price_label, duration_min, active, sort_order)
-        VALUES ($1, $2, $3, $4, $5, TRUE, $6)
-        ON CONFLICT (tenant_id, slug)
-        DO UPDATE SET name = EXCLUDED.name, price_label = EXCLUDED.price_label,
-                      duration_min = EXCLUDED.duration_min, active = TRUE,
-                      sort_order = EXCLUDED.sort_order
-        `,
-        [tenant.id, serviceSlugs[index], service.name, service.price, duration.minutes, index],
+        [tenant.id, staffSlugs[index], member.name, phone, index],
       )
     }
   })
 
-  log.info('catálogo sincronizado', { tenant: tenant.slug, barbers: team.length, services: tenant.config.services.length })
-  return { barbers: team.length, services: tenant.config.services.length, fallbacks }
+  log.info('catálogo sincronizado', { tenant: tenant.slug, areas: areas.length, staff: team.length })
+  return { areas: areas.length, staff: team.length }
 }
 
-interface BarberRow {
+interface AreaRow {
+  id: string
+  slug: string
+  name: string
+  capacity: number
+  active: boolean
+  sort_order: number
+}
+
+export async function listAreas(tenantId: string): Promise<AreaRecord[]> {
+  const rows = await query<AreaRow>(
+    `SELECT id, slug, name, capacity, active, sort_order
+     FROM areas WHERE tenant_id = $1 AND active ORDER BY sort_order`,
+    [tenantId],
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    capacity: row.capacity,
+    active: row.active,
+    sortOrder: row.sort_order,
+  }))
+}
+
+interface StaffRow {
   id: string
   slug: string
   name: string
@@ -233,9 +254,9 @@ interface BarberRow {
   sort_order: number
 }
 
-export async function listBarbers(tenantId: string): Promise<Barber[]> {
-  const rows = await query<BarberRow>(
-    'SELECT id, slug, name, phone, active, sort_order FROM barbers WHERE tenant_id = $1 AND active ORDER BY sort_order',
+export async function listStaff(tenantId: string): Promise<StaffMember[]> {
+  const rows = await query<StaffRow>(
+    'SELECT id, slug, name, phone, active, sort_order FROM staff WHERE tenant_id = $1 AND active ORDER BY sort_order',
     [tenantId],
   )
   return rows.map((row) => ({
@@ -248,35 +269,7 @@ export async function listBarbers(tenantId: string): Promise<Barber[]> {
   }))
 }
 
-interface ServiceRow {
-  id: string
-  slug: string
-  name: string
-  price_label: string
-  duration_min: number
-  active: boolean
-  sort_order: number
-}
-
-export async function listServices(tenantId: string): Promise<ServiceRecord[]> {
-  const rows = await query<ServiceRow>(
-    `SELECT id, slug, name, price_label, duration_min, active, sort_order
-     FROM services WHERE tenant_id = $1 AND active ORDER BY sort_order`,
-    [tenantId],
-  )
-  return rows.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    priceLabel: row.price_label,
-    durationMin: row.duration_min,
-    active: row.active,
-    sortOrder: row.sort_order,
-  }))
-}
-
-
-/** Cala (ou destrava) o bot para a barbearia inteira — menu do dono. */
+/** Cala (ou destrava) o bot para o restaurante inteiro — menu do dono. */
 export async function setBotPaused(tenantId: string, until: Date | null): Promise<void> {
   await query('UPDATE tenants SET bot_paused_until = $2, updated_at = now() WHERE id = $1', [
     tenantId,

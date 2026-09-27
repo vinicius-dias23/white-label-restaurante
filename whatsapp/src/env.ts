@@ -39,7 +39,7 @@ function integer(name: string, fallback: number, min = 0, max = Number.MAX_SAFE_
   return Math.round(n)
 }
 
-/** Aceita true/false, 1/0, sim/não — o dono da barbearia não é programador. */
+/** Aceita true/false, 1/0, sim/não — o dono do restaurante não é programador. */
 function boolean(name: string, fallback: boolean): boolean {
   const raw = process.env[name]?.trim().toLowerCase()
   if (!raw) return fallback
@@ -125,7 +125,7 @@ export const env = {
   },
 
   /**
-   * Trava geral das mensagens programadas. Cada barbearia ainda precisa ligar a
+   * Trava geral das mensagens programadas. Cada restaurante ainda precisa ligar a
    * dela em `whatsapp.messages` — só sai o que estiver ligado nos dois lugares.
    */
   features: {
@@ -153,7 +153,7 @@ export const env = {
     messageRetentionDays: integer('MESSAGE_RETENTION_DAYS', 180, 0, 3650),
   },
 
-  /** Primeira barbearia, cadastrada direto pelo .env. Opcional. */
+  /** Primeiro restaurante, cadastrado direto pelo .env. Opcional. */
   bootstrapTenant: {
     slug: optional('TENANT_SLUG'),
     phoneNumberId: optional('TENANT_PHONE_NUMBER_ID'),

@@ -3,27 +3,35 @@ import { env } from '../env.js'
 import { closePool, query, queryOne } from '../db/pool.js'
 import { migrate } from '../db/migrate.js'
 import {
-  busyIntervals,
-  cancelAppointment,
-  createAppointment,
+  agendaBetween,
+  approveReservation,
+  areaOccupancy,
+  cancelReservation,
+  createReservation,
   createTimeBlock,
+  declineReservation,
+  listPending,
   listUpcomingByContact,
-} from '../db/repositories/appointments.js'
+  markArrival,
+  markPastAsCompleted,
+  resumo,
+} from '../db/repositories/reservations.js'
 import { isWithinServiceWindow, upsertContact } from '../db/repositories/contacts.js'
-import { cancelPendingForAppointment, claimDue, enqueue, markFailed } from '../db/repositories/outbox.js'
+import { cancelPendingForReservation, claimDue, enqueue, markFailed } from '../db/repositories/outbox.js'
 import { registerInbound } from '../db/repositories/messages.js'
 
 /**
  * Testes que precisam de Postgres de verdade.
  *
- * A trava contra dupla marcação não tem como ser testada com banco fingido: é o
- * próprio Postgres que recusa a sobreposição, e é justamente isso que precisa
- * ser provado — dois clientes confirmando o mesmo horário no mesmo instante.
+ * A trava da lotação não tem como ser testada com banco fingido: é o
+ * `SELECT ... FOR UPDATE` no ambiente que põe na fila duas pessoas disputando
+ * o último lugar, e é justamente isso que precisa ser provado — dois clientes
+ * confirmando a mesma mesa no mesmo instante.
  *
  * Rodam só com DATABASE_URL_TEST preenchida no .env:
  *
  *   docker compose up -d
- *   psql -h localhost -U barbearia -c "CREATE DATABASE barbearia_test"
+ *   psql -h localhost -U restaurante -c "CREATE DATABASE restaurante_test"
  *   npm test
  *
  * Sem ela, são pulados e o resto da suíte roda normalmente.
@@ -33,9 +41,8 @@ const temBanco = Boolean(env.databaseUrl)
 
 describe.skipIf(!temBanco)('banco de dados', () => {
   let tenantId: string
-  let barberId: string
-  let outroBarberId: string
-  let serviceId: string
+  let salaoId: string
+  let varandaId: string
   let contactId: string
 
   const at = (iso: string): Date => new Date(iso)
@@ -55,18 +62,13 @@ describe.skipIf(!temBanco)('banco de dados', () => {
       `INSERT INTO tenants (slug, display_name, phone_number_id) VALUES ('t', 'Teste', '999') RETURNING id`,
     ))!.id
 
-    barberId = (await queryOne<{ id: string }>(
-      `INSERT INTO barbers (tenant_id, slug, name) VALUES ($1, 'rafael', 'Rafael') RETURNING id`,
+    salaoId = (await queryOne<{ id: string }>(
+      `INSERT INTO areas (tenant_id, slug, name, capacity) VALUES ($1, 'salao', 'Salão', 20) RETURNING id`,
       [tenantId],
     ))!.id
 
-    outroBarberId = (await queryOne<{ id: string }>(
-      `INSERT INTO barbers (tenant_id, slug, name) VALUES ($1, 'diego', 'Diego') RETURNING id`,
-      [tenantId],
-    ))!.id
-
-    serviceId = (await queryOne<{ id: string }>(
-      `INSERT INTO services (tenant_id, slug, name, duration_min) VALUES ($1, 'corte', 'Corte', 40) RETURNING id`,
+    varandaId = (await queryOne<{ id: string }>(
+      `INSERT INTO areas (tenant_id, slug, name, capacity) VALUES ($1, 'varanda', 'Varanda', 10) RETURNING id`,
       [tenantId],
     ))!.id
 
@@ -76,105 +78,218 @@ describe.skipIf(!temBanco)('banco de dados', () => {
     ))!.id
   })
 
-  const marcar = (startsAt: string, minutos = 40, barbeiro = barberId) =>
-    createAppointment({
+  const reservar = (
+    startsAt: string,
+    partySize: number,
+    opcoes: { areaId?: string; minutos?: number; status?: 'pending' | 'scheduled' } = {},
+  ) =>
+    createReservation({
       tenantId,
       contactId,
-      barberId: barbeiro,
-      serviceId,
+      areaId: opcoes.areaId ?? salaoId,
+      partySize,
       startsAt: at(startsAt),
-      endsAt: new Date(at(startsAt).getTime() + minutos * 60_000),
+      endsAt: new Date(at(startsAt).getTime() + (opcoes.minutos ?? 120) * 60_000),
+      status: opcoes.status ?? 'scheduled',
     })
 
   // -------------------------------------------------------------------------
 
-  describe('trava contra dupla marcação', () => {
-    it('marca um horário livre', async () => {
-      const criado = await marcar('2026-08-22T13:00:00Z')
-      expect(criado).not.toBeNull()
-      expect(criado!.status).toBe('scheduled')
+  describe('lotação do ambiente', () => {
+    it('reserva uma mesa com lugar livre', async () => {
+      const criada = await reservar('2026-08-22T23:00:00Z', 4)
+      expect(criada).not.toBeNull()
+      expect(criada!.status).toBe('scheduled')
+      expect(criada!.partySize).toBe(4)
     })
 
-    it('RECUSA dois agendamentos sobrepostos no mesmo barbeiro', async () => {
-      expect(await marcar('2026-08-22T13:00:00Z')).not.toBeNull()
-
-      // Começa 20 min depois: invade os 40 minutos do primeiro.
-      expect(await marcar('2026-08-22T13:20:00Z')).toBeNull()
-      // Começa antes e atravessa o início do primeiro.
-      expect(await marcar('2026-08-22T12:40:00Z')).toBeNull()
-      // Exatamente o mesmo horário.
-      expect(await marcar('2026-08-22T13:00:00Z')).toBeNull()
-      // Engloba o primeiro inteiro.
-      expect(await marcar('2026-08-22T12:30:00Z', 120)).toBeNull()
+    it('aceita vários grupos no mesmo horário até encher', async () => {
+      expect(await reservar('2026-08-22T23:00:00Z', 8)).not.toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 8)).not.toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 4)).not.toBeNull() // 20/20
+      expect(await reservar('2026-08-22T23:00:00Z', 1)).toBeNull()
     })
 
-    it('permite um começar no minuto em que o outro termina', async () => {
-      expect(await marcar('2026-08-22T13:00:00Z')).not.toBeNull()
-      expect(await marcar('2026-08-22T13:40:00Z')).not.toBeNull()
+    it('RECUSA o grupo que passaria da lotação em qualquer momento da mesa', async () => {
+      expect(await reservar('2026-08-22T23:00:00Z', 16)).not.toBeNull()
+      // Começa 1h depois, mas ainda encontra os 16 sentados.
+      expect(await reservar('2026-08-23T00:00:00Z', 6)).toBeNull()
+      // Começa antes e atravessa a chegada deles.
+      expect(await reservar('2026-08-22T22:00:00Z', 6)).toBeNull()
+      // Cabe exatamente.
+      expect(await reservar('2026-08-23T00:00:00Z', 4)).not.toBeNull()
     })
 
-    it('o mesmo horário em barbeiros diferentes é permitido', async () => {
-      expect(await marcar('2026-08-22T13:00:00Z')).not.toBeNull()
-      expect(await marcar('2026-08-22T13:00:00Z', 40, outroBarberId)).not.toBeNull()
+    it('a mesa seguinte começa no minuto em que a anterior termina', async () => {
+      expect(await reservar('2026-08-22T21:00:00Z', 20)).not.toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 20)).not.toBeNull()
     })
 
-    it('cancelar libera o horário na hora', async () => {
-      const criado = await marcar('2026-08-22T13:00:00Z')
-      expect(await marcar('2026-08-22T13:00:00Z')).toBeNull()
+    it('um ambiente cheio não afeta o outro', async () => {
+      expect(await reservar('2026-08-22T23:00:00Z', 20)).not.toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 10, { areaId: varandaId })).not.toBeNull()
+    })
 
-      await cancelAppointment(criado!.id, 'teste')
+    it('dois clientes disputando o último lugar: um entra, o outro não', async () => {
+      await reservar('2026-08-22T23:00:00Z', 16)
+      const [a, b] = await Promise.all([
+        reservar('2026-08-22T23:00:00Z', 4),
+        reservar('2026-08-22T23:00:00Z', 4),
+      ])
+      expect([a, b].filter(Boolean)).toHaveLength(1)
+    })
 
-      expect(await marcar('2026-08-22T13:00:00Z')).not.toBeNull()
+    it('pedido pendente segura os lugares enquanto o dono decide', async () => {
+      expect(await reservar('2026-08-22T23:00:00Z', 15, { status: 'pending' })).not.toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 6)).toBeNull()
+    })
+
+    it('cancelar libera os lugares na hora', async () => {
+      const criada = await reservar('2026-08-22T23:00:00Z', 20)
+      expect(await reservar('2026-08-22T23:00:00Z', 2)).toBeNull()
+
+      await cancelReservation(criada!.id, 'teste')
+
+      expect(await reservar('2026-08-22T23:00:00Z', 2)).not.toBeNull()
     })
 
     it('cancelar duas vezes não gera dois avisos ao dono', async () => {
-      const criado = await marcar('2026-08-22T13:00:00Z')
-      expect(await cancelAppointment(criado!.id, 'teste')).not.toBeNull()
+      const criada = await reservar('2026-08-22T23:00:00Z', 2)
+      expect(await cancelReservation(criada!.id, 'teste')).not.toBeNull()
       // Cliente tocou duas vezes no botão.
-      expect(await cancelAppointment(criado!.id, 'teste')).toBeNull()
+      expect(await cancelReservation(criada!.id, 'teste')).toBeNull()
+    })
+
+    it('bloqueio do restaurante inteiro recusa a reserva', async () => {
+      await createTimeBlock(tenantId, null, at('2026-08-22T22:00:00Z'), at('2026-08-23T03:00:00Z'), 'evento')
+      expect(await reservar('2026-08-22T23:00:00Z', 2)).toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 2, { areaId: varandaId })).toBeNull()
+    })
+
+    it('bloqueio de um ambiente não fecha o outro', async () => {
+      await createTimeBlock(tenantId, varandaId, at('2026-08-22T22:00:00Z'), at('2026-08-23T03:00:00Z'), 'chuva')
+      expect(await reservar('2026-08-22T23:00:00Z', 2, { areaId: varandaId })).toBeNull()
+      expect(await reservar('2026-08-22T23:00:00Z', 2)).not.toBeNull()
     })
   })
 
-  describe('ocupação da agenda', () => {
-    it('junta agendamentos e bloqueios manuais', async () => {
-      await marcar('2026-08-22T13:00:00Z')
-      await createTimeBlock(
-        tenantId,
-        null, // bloqueio para a barbearia inteira
-        at('2026-08-22T18:00:00Z'),
-        at('2026-08-22T20:00:00Z'),
-        'folga',
-      )
+  describe('ocupação e listas', () => {
+    it('junta reservas e bloqueios do ambiente', async () => {
+      await reservar('2026-08-22T23:00:00Z', 4)
+      await createTimeBlock(tenantId, null, at('2026-08-22T15:00:00Z'), at('2026-08-22T17:00:00Z'), 'folga')
+      await createTimeBlock(tenantId, varandaId, at('2026-08-22T18:00:00Z'), at('2026-08-22T19:00:00Z'), 'chuva')
 
-      const ocupado = await busyIntervals(
-        tenantId,
-        barberId,
-        at('2026-08-22T00:00:00Z'),
-        at('2026-08-23T00:00:00Z'),
-      )
-      expect(ocupado).toHaveLength(2)
+      const salao = await areaOccupancy(tenantId, salaoId, at('2026-08-22T00:00:00Z'), at('2026-08-23T06:00:00Z'))
+      expect(salao.reservations).toEqual([expect.objectContaining({ partySize: 4 })])
+      expect(salao.blocks).toHaveLength(1) // só o do restaurante inteiro
     })
 
-    it('bloqueio de um barbeiro não afeta o outro', async () => {
-      await createTimeBlock(tenantId, barberId, at('2026-08-22T18:00:00Z'), at('2026-08-22T20:00:00Z'), 'folga')
+    it('lista só as reservas futuras do cliente, com o nome do ambiente', async () => {
+      await reservar('2020-01-01T23:00:00Z', 2) // passado
+      await reservar('2026-08-22T23:00:00Z', 4, { areaId: varandaId }) // futuro
 
-      const doOutro = await busyIntervals(
-        tenantId,
-        outroBarberId,
-        at('2026-08-22T00:00:00Z'),
-        at('2026-08-23T00:00:00Z'),
-      )
-      expect(doOutro).toHaveLength(0)
+      const futuras = await listUpcomingByContact(contactId, at('2026-08-01T00:00:00Z'))
+      expect(futuras).toHaveLength(1)
+      expect(futuras[0]!.areaName).toBe('Varanda')
+      expect(futuras[0]!.contactName).toBe('João')
+    })
+  })
+
+  describe('grupo grande: aprovação do dono', () => {
+    it('aprovar tira de pendente e mantém os lugares', async () => {
+      const pedido = await reservar('2026-08-22T23:00:00Z', 12, { status: 'pending' })
+      expect(await listPending(tenantId, at('2026-08-01T00:00:00Z'))).toHaveLength(1)
+
+      const aprovada = await approveReservation(tenantId, pedido!.id)
+      expect(aprovada!.status).toBe('scheduled')
+      expect(await listPending(tenantId, at('2026-08-01T00:00:00Z'))).toHaveLength(0)
     })
 
-    it('lista só os agendamentos futuros do cliente', async () => {
-      await marcar('2020-01-01T13:00:00Z') // passado
-      await marcar('2026-08-22T13:00:00Z') // futuro
+    it('recusar devolve os lugares', async () => {
+      const pedido = await reservar('2026-08-22T23:00:00Z', 15, { status: 'pending' })
+      expect(await reservar('2026-08-22T23:00:00Z', 6)).toBeNull()
 
-      const futuros = await listUpcomingByContact(contactId, at('2026-08-01T00:00:00Z'))
-      expect(futuros).toHaveLength(1)
-      expect(futuros[0]!.serviceName).toBe('Corte')
-      expect(futuros[0]!.barberName).toBe('Rafael')
+      expect((await declineReservation(tenantId, pedido!.id))!.status).toBe('declined')
+      expect(await reservar('2026-08-22T23:00:00Z', 6)).not.toBeNull()
+    })
+
+    it('decidir duas vezes não faz nada na segunda', async () => {
+      const pedido = await reservar('2026-08-22T23:00:00Z', 12, { status: 'pending' })
+      expect(await approveReservation(tenantId, pedido!.id)).not.toBeNull()
+      expect(await approveReservation(tenantId, pedido!.id)).toBeNull()
+      expect(await declineReservation(tenantId, pedido!.id)).toBeNull()
+    })
+
+    it('aprovar um pedido que o cliente já cancelou não ressuscita nada', async () => {
+      const pedido = await reservar('2026-08-22T23:00:00Z', 12, { status: 'pending' })
+      await cancelReservation(pedido!.id, 'desistiu')
+      expect(await approveReservation(tenantId, pedido!.id)).toBeNull()
+    })
+
+    it('o id de outro restaurante não aprova nada', async () => {
+      const pedido = await reservar('2026-08-22T23:00:00Z', 12, { status: 'pending' })
+      const outro = (await queryOne<{ id: string }>(
+        `INSERT INTO tenants (slug, display_name, phone_number_id) VALUES ('o', 'Outro', '888') RETURNING id`,
+      ))!.id
+      expect(await approveReservation(outro, pedido!.id)).toBeNull()
+    })
+
+    it('pedido sem resposta que passou da hora é recusado pelo job diário', async () => {
+      const pedido = await reservar('2026-08-22T23:00:00Z', 12, { status: 'pending' })
+      await markPastAsCompleted(tenantId, at('2026-08-23T12:00:00Z'))
+      const linha = await queryOne<{ status: string }>('SELECT status FROM reservations WHERE id = $1', [pedido!.id])
+      expect(linha!.status).toBe('declined')
+    })
+  })
+
+  describe('recepção: chegadas e resumo', () => {
+    it('marca chegada e falta, e dá para corrigir', async () => {
+      const criada = await reservar('2026-08-22T23:00:00Z', 4)
+      expect((await markArrival(tenantId, criada!.id, false))!.status).toBe('no_show')
+      expect((await markArrival(tenantId, criada!.id, true))!.status).toBe('arrived')
+    })
+
+    it('não marca reserva cancelada nem de outro restaurante', async () => {
+      const criada = await reservar('2026-08-22T23:00:00Z', 4)
+      const outro = (await queryOne<{ id: string }>(
+        `INSERT INTO tenants (slug, display_name, phone_number_id) VALUES ('o', 'Outro', '888') RETURNING id`,
+      ))!.id
+      expect(await markArrival(outro, criada!.id, true)).toBeNull()
+
+      await cancelReservation(criada!.id, 'teste')
+      expect(await markArrival(tenantId, criada!.id, true)).toBeNull()
+    })
+
+    it('a lista do dia traz quem chegou e quem faltou, mas não os cancelados', async () => {
+      const a = await reservar('2026-08-22T23:00:00Z', 4)
+      const b = await reservar('2026-08-22T23:30:00Z', 2)
+      const c = await reservar('2026-08-23T00:00:00Z', 2)
+      await markArrival(tenantId, a!.id, true)
+      await markArrival(tenantId, b!.id, false)
+      await cancelReservation(c!.id, 'teste')
+
+      const dia = await agendaBetween(tenantId, at('2026-08-22T03:00:00Z'), at('2026-08-23T03:00:00Z'))
+      expect(dia.map((r) => r.status)).toEqual(['arrived', 'no_show'])
+    })
+
+    it('o resumo soma reservas, pessoas, presenças e faltas por período', async () => {
+      const a = await reservar('2026-08-22T23:00:00Z', 4)
+      const b = await reservar('2026-08-22T23:30:00Z', 2)
+      await reservar('2026-08-21T23:00:00Z', 6) // ontem
+      await reservar('2026-08-22T23:00:00Z', 10, { status: 'pending' }) // pendente não entra
+      await markArrival(tenantId, a!.id, true)
+      await markArrival(tenantId, b!.id, false)
+
+      const r = await resumo(tenantId, {
+        ontem: at('2026-08-21T03:00:00Z'),
+        hoje: at('2026-08-22T03:00:00Z'),
+        amanha: at('2026-08-23T03:00:00Z'),
+        semana: at('2026-08-17T03:00:00Z'),
+        mes: at('2026-08-01T03:00:00Z'),
+      })
+      expect(r.hoje).toEqual({ reservas: 2, pessoas: 6, compareceram: 1, faltaram: 1 })
+      expect(r.ontem).toMatchObject({ reservas: 1, pessoas: 6 })
+      expect(r.semana).toMatchObject({ reservas: 3, pessoas: 12 })
     })
   })
 
@@ -204,32 +319,32 @@ describe.skipIf(!temBanco)('banco de dados', () => {
     })
   })
 
-  describe('cadastro de barbearias', () => {
-    it('explica quando o número já pertence a outra barbearia', async () => {
+  describe('cadastro de restaurantes', () => {
+    it('explica quando o número já pertence a outro restaurante', async () => {
       const { upsertTenant } = await import('../db/repositories/tenants.js')
-      const { normalizeConfig } = await import('@barbearia/shared/config')
+      const { normalizeConfig } = await import('@restaurante/shared/config')
       const config = normalizeConfig({ brand: { name: 'Outra' } })
 
       // Cenário real: o dono renomeia o slug no .env sem renomear a pasta, e o
-      // mesmo phone_number_id acaba disputado por duas barbearias. O erro cru do
+      // mesmo phone_number_id acaba disputado por dois restaurantes. O erro cru do
       // Postgres não diz nada — este teste garante que a mensagem diz.
       await expect(
         upsertTenant({
-          slug: 'barbearia-nova',
+          slug: 'restaurante-novo',
           displayName: 'Outra',
-          phoneNumberId: '999', // já é da barbearia 't', criada no beforeEach
+          phoneNumberId: '999', // já é do restaurante 't', criada no beforeEach
           wabaId: '',
           accessToken: 'tok',
           ownerPhone: '',
           timezone: 'America/Sao_Paulo',
           config,
         }),
-      ).rejects.toThrow(/já está cadastrado na barbearia "t"/)
+      ).rejects.toThrow(/já está cadastrado no restaurante "t"/)
     })
 
-    it('atualizar a mesma barbearia continua funcionando', async () => {
+    it('atualizar o mesmo restaurante continua funcionando', async () => {
       const { upsertTenant } = await import('../db/repositories/tenants.js')
-      const { normalizeConfig } = await import('@barbearia/shared/config')
+      const { normalizeConfig } = await import('@restaurante/shared/config')
 
       const atualizada = await upsertTenant({
         slug: 't',
@@ -255,11 +370,11 @@ describe.skipIf(!temBanco)('banco de dados', () => {
   })
 
   describe('fila de mensagens', () => {
-    const enfileirar = (dedupeKey: string, scheduledFor: Date, appointmentId?: string) =>
+    const enfileirar = (dedupeKey: string, scheduledFor: Date, reservationId?: string) =>
       enqueue({
         tenantId,
         contactId,
-        appointmentId: appointmentId ?? null,
+        reservationId: reservationId ?? null,
         kind: 'lembrete24h',
         payload: { messaging_product: 'whatsapp', to: '5511999999999', type: 'text' },
         scheduledFor,
@@ -267,9 +382,9 @@ describe.skipIf(!temBanco)('banco de dados', () => {
       })
 
     it('a mesma chave nunca entra duas vezes', async () => {
-      expect(await enfileirar('apt-1:lembrete24h', new Date())).toBe(true)
+      expect(await enfileirar('res-1:lembrete24h', new Date())).toBe(true)
       // Job rodou de novo, worker reiniciou, deploy repetiu a chamada...
-      expect(await enfileirar('apt-1:lembrete24h', new Date())).toBe(false)
+      expect(await enfileirar('res-1:lembrete24h', new Date())).toBe(false)
     })
 
     it('só entrega o que já venceu', async () => {
@@ -323,15 +438,15 @@ describe.skipIf(!temBanco)('banco de dados', () => {
       expect(linha!.status).toBe('failed')
     })
 
-    it('cancelar o corte tira o lembrete da fila antes de ele sair', async () => {
-      const agendamento = await marcar('2026-08-22T13:00:00Z')
-      await enfileirar(`${agendamento!.id}:lembrete24h`, new Date(Date.now() + 3600_000), agendamento!.id)
+    it('cancelar a reserva tira o lembrete da fila antes de ele sair', async () => {
+      const reserva = await reservar('2026-08-22T23:00:00Z', 2)
+      await enfileirar(`${reserva!.id}:lembrete24h`, new Date(Date.now() + 3600_000), reserva!.id)
 
-      expect(await cancelPendingForAppointment(agendamento!.id)).toBe(1)
+      expect(await cancelPendingForReservation(reserva!.id)).toBe(1)
 
       const linha = await queryOne<{ status: string }>(
-        'SELECT status FROM outbox WHERE appointment_id = $1',
-        [agendamento!.id],
+        'SELECT status FROM outbox WHERE reservation_id = $1',
+        [reserva!.id],
       )
       expect(linha!.status).toBe('skipped')
     })

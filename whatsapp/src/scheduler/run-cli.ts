@@ -11,8 +11,8 @@ import { runOnce } from './worker.js'
  *   npm run outbox:run -- --now=2026-08-22T10:00  finge que agora é outra hora
  *   npm run outbox:run -- --diarios              roda as rotinas diárias
  *
- * O `--now` é o jeito de testar um lembrete de 24h sem esperar um dia: crie o
- * agendamento, depois rode com a data de véspera.
+ * O `--now` é o jeito de testar um lembrete de 24h sem esperar um dia: crie a
+ * reserva, depois rode com a data de véspera.
  */
 
 function flag(name: string): string {

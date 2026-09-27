@@ -1,45 +1,54 @@
-import type { SiteConfig } from '@barbearia/shared/config'
-import { DAY_KEYS, DAY_LABELS } from '@barbearia/shared/config'
+import type { SiteConfig } from '@restaurante/shared/config'
+import { DAY_KEYS, DAY_LABELS } from '@restaurante/shared/config'
 import { slugify } from '../tenants/slug.js'
 
 /**
  * O conteúdo editável pelo estúdio: o que está ATRÁS de cada opção do menu.
  *
- * Os textos dizem como o bot fala; isto aqui é o que ele fala sobre — serviços,
- * equipe, horários, endereço e as regras que decidem o que o cliente pode fazer.
- * Tudo mora no mesmo `barbearia.config.json`, e o mesmo arquivo alimenta a
- * landing page: mudou o preço aqui, mudou no site.
+ * Os textos dizem como o bot fala; isto aqui é o que ele fala sobre — cardápio,
+ * ambientes, equipe, horários, endereço e as regras que decidem o que o cliente
+ * pode reservar. Tudo mora no mesmo `restaurante.config.json`, e o mesmo arquivo
+ * alimenta a landing page: mudou o preço aqui, mudou no site.
  *
- * O `slug` é o que amarra serviço e barbeiro às linhas do banco. O estúdio
+ * O `slug` é o que amarra ambiente e colaborador às linhas do banco. O estúdio
  * carimba um na criação e nunca mais mexe — é isso que faz "renomear" ser
  * renomear de verdade, em vez de criar um item novo e órfão.
  */
 
-export interface ServicoEditavel {
+export interface PratoEditavel {
   slug: string
   name: string
+  category: string
   price: string
-  duration: string
-  durationMin: number
   description: string
   imageUrl: string
   highlight: boolean
 }
 
-export interface BarbeiroEditavel {
+export interface AmbienteEditavel {
+  slug: string
+  name: string
+  description: string
+  /** Pessoas ao mesmo tempo. É a lotação que o bot respeita. */
+  capacity: number
+  imageUrl: string
+  bookable: boolean
+}
+
+export interface ColaboradorEditavel {
   slug: string
   name: string
   role: string
   photoUrl: string
   instagram: string
-  /** WhatsApp do barbeiro: é o que abre o painel dele no bot. */
+  /** WhatsApp do colaborador: é o que abre o painel da recepção no bot. */
   phone: string
-  bookable: boolean
 }
 
 export interface Conteudo {
-  services: ServicoEditavel[]
-  team: BarbeiroEditavel[]
+  menu: { url: string; items: PratoEditavel[] }
+  areas: AmbienteEditavel[]
+  team: ColaboradorEditavel[]
   hours: Record<string, [string, string][]>
   brand: { name: string; tagline: string }
   contact: {
@@ -66,15 +75,25 @@ export const DIAS = DAY_KEYS.map((key) => ({ key, label: DAY_LABELS[key] }))
 
 export function lerConteudo(config: SiteConfig): Conteudo {
   return {
-    services: config.services.map((service) => ({
-      slug: service.slug,
-      name: service.name,
-      price: service.price,
-      duration: service.duration,
-      durationMin: service.durationMin,
-      description: service.description,
-      imageUrl: service.imageUrl,
-      highlight: service.highlight,
+    menu: {
+      url: config.menu.url,
+      items: config.menu.items.map((item) => ({
+        slug: item.slug,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        highlight: item.highlight,
+      })),
+    },
+    areas: config.areas.map((area) => ({
+      slug: area.slug,
+      name: area.name,
+      description: area.description,
+      capacity: area.capacity,
+      imageUrl: area.imageUrl,
+      bookable: area.bookable,
     })),
     team: config.team.map((member) => ({
       slug: member.slug,
@@ -83,7 +102,6 @@ export function lerConteudo(config: SiteConfig): Conteudo {
       photoUrl: member.photoUrl,
       instagram: member.instagram,
       phone: member.phone,
-      bookable: member.bookable,
     })),
     hours: Object.fromEntries(DAY_KEYS.map((day) => [day, config.hours[day]])),
     brand: { name: config.brand.name, tagline: config.brand.tagline },
@@ -136,7 +154,8 @@ function carimbarSlugs<T extends { slug: string; name: string }>(itens: T[], fal
 }
 
 export interface ConteudoRecebido {
-  services?: unknown
+  menu?: unknown
+  areas?: unknown
   team?: unknown
   hours?: unknown
   brand?: unknown
@@ -171,25 +190,45 @@ export function paraGravar(
       : {}
   }
 
-  if (Array.isArray(recebido.services)) {
-    const servicos = carimbarSlugs(
-      recebido.services.map((raw) => {
+  if (recebido.menu && typeof recebido.menu === 'object') {
+    const raw = recebido.menu as Record<string, unknown>
+    const itens = Array.isArray(raw.items) ? raw.items : []
+    const pratos = carimbarSlugs(
+      itens.map((bruto) => {
+        const item = bruto as Record<string, unknown>
+        return {
+          slug: texto(item.slug),
+          name: texto(item.name),
+          description: texto(item.description),
+          category: texto(item.category),
+          price: texto(item.price),
+          imageUrl: texto(item.imageUrl),
+          highlight: item.highlight === true,
+        }
+      }),
+      'prato',
+    ).filter((item) => item.name !== '')
+
+    mudancas.push({ caminho: ['menu'], valor: { url: texto(raw.url), items: pratos } })
+  }
+
+  if (Array.isArray(recebido.areas)) {
+    const ambientes = carimbarSlugs(
+      recebido.areas.map((raw) => {
         const item = raw as Record<string, unknown>
         return {
           slug: texto(item.slug),
           name: texto(item.name),
           description: texto(item.description),
-          price: texto(item.price),
-          duration: texto(item.duration),
-          durationMin: inteiro(item.durationMin, 0),
+          capacity: Math.max(0, inteiro(item.capacity, 0)),
           imageUrl: texto(item.imageUrl),
-          highlight: item.highlight === true,
+          bookable: item.bookable !== false,
         }
       }),
-      'servico',
-    ).filter((service) => service.name !== '')
+      'ambiente',
+    ).filter((area) => area.name !== '')
 
-    mudancas.push({ caminho: ['services'], valor: servicos })
+    mudancas.push({ caminho: ['areas'], valor: ambientes })
   }
 
   if (Array.isArray(recebido.team)) {
@@ -206,10 +245,9 @@ export function paraGravar(
           // O telefone também: "(11) 91234-5678" é o que se lê no diff. Quem
           // normaliza é o tenant:sync, na hora de gravar no banco.
           phone: texto(item.phone),
-          bookable: item.bookable !== false,
         }
       }),
-      'barbeiro',
+      'colaborador',
     ).filter((member) => member.name !== '')
 
     mudancas.push({ caminho: ['team'], valor: equipe })
@@ -265,10 +303,12 @@ export function paraGravar(
         slotStepMin: inteiro(raw.slotStepMin, d.slotStepMin),
         leadTimeMin: inteiro(raw.leadTimeMin, d.leadTimeMin),
         horizonDays: inteiro(raw.horizonDays, d.horizonDays),
-        bufferMin: inteiro(raw.bufferMin, d.bufferMin),
+        durationMin: inteiro(raw.durationMin, d.durationMin),
+        lastSeatingMin: inteiro(raw.lastSeatingMin, d.lastSeatingMin),
         maxPerContact: inteiro(raw.maxPerContact, d.maxPerContact),
         cancelDeadlineHours: inteiro(raw.cancelDeadlineHours, d.cancelDeadlineHours),
-        defaultDurationMin: inteiro(raw.defaultDurationMin, d.defaultDurationMin),
+        maxPartySize: inteiro(raw.maxPartySize, d.maxPartySize),
+        approvalAbovePartySize: inteiro(raw.approvalAbovePartySize, d.approvalAbovePartySize),
       },
     })
   }

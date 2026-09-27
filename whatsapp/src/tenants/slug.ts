@@ -1,10 +1,10 @@
 /**
- * Identificador estável a partir de um nome ("Corte + Barba" → "corte-barba").
+ * Identificador estável a partir de um nome ("Área Externa" → "area-externa").
  *
- * Estável importa: o slug é a ponte entre o `barbearia.config.json` e as linhas
+ * Estável importa: o slug é a ponte entre o `restaurante.config.json` e as linhas
  * já gravadas no banco. Se ele mudasse a cada sync, cada `npm run tenant:sync`
- * criaria serviços novos e órfãos, e os agendamentos apontariam para o serviço
- * antigo. Por isso: renomear um serviço no config muda o nome, não o slug —
+ * criaria ambientes novos e órfãos, e as reservas apontariam para o ambiente
+ * antigo. Por isso: renomear um ambiente no config muda o nome, não o slug —
  * desde que o começo do nome continue o mesmo.
  */
 export function slugify(text: string, fallback = 'item'): string {
@@ -34,7 +34,7 @@ export function uniqueSlugs(names: string[], fallback = 'item'): string[] {
  * Os slugs de uma lista de itens que podem trazer o seu já fixado.
  *
  * O slug escrito no config manda — é ele que segura a identidade quando o dono
- * renomeia o serviço pelo estúdio. Quem não tem cai na derivação do nome, como
+ * renomeia o ambiente pelo estúdio. Quem não tem cai na derivação do nome, como
  * sempre, e a numeração de desempate pula os slugs já tomados para nunca
  * roubar a linha de outro item.
  */

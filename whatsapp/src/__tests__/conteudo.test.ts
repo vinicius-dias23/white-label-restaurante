@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CONFIG, normalizeConfig, type SiteConfig } from '@barbearia/shared/config'
+import { DEFAULT_CONFIG, normalizeConfig, type SiteConfig } from '@restaurante/shared/config'
 import { paraGravar } from '../studio/conteudo.js'
 import { resolveSlugs } from '../tenants/slug.js'
 
 /**
  * O que este teste protege: a identidade dos itens do catálogo.
  *
- * O slug é a ponte entre o config e as linhas de `services` e `barbers` — e
- * `appointments` aponta para elas. Se o estúdio deixar o slug mudar num
- * renomear, o serviço vira outro, o antigo é desativado e o histórico do
- * cliente passa a falar de um serviço que sumiu do menu.
+ * O slug é a ponte entre o config e as linhas de `areas` e `staff` — e
+ * `reservations` aponta para os ambientes. Se o estúdio deixar o slug mudar
+ * num renomear, o ambiente vira outro, o antigo é desativado e as reservas já
+ * feitas passam a apontar para um ambiente que sumiu do menu.
  */
 
 const mudanca = (recebido: object, config: SiteConfig = DEFAULT_CONFIG, bruto = {}) =>
@@ -21,80 +21,105 @@ describe('resolveSlugs', () => {
   it('respeita o slug já fixado e deriva só o que falta', () => {
     expect(
       resolveSlugs([
-        { slug: 'corte-barba', name: 'Corte + Barba Premium' },
-        { slug: '', name: 'Pezinho' },
+        { slug: 'salao', name: 'Salão Principal' },
+        { slug: '', name: 'Varanda' },
       ]),
-    ).toEqual(['corte-barba', 'pezinho'])
+    ).toEqual(['salao', 'varanda'])
   })
 
   it('não rouba o slug de quem já o fixou', () => {
-    // O segundo item derivaria "pezinho", que já é de outro — vai para -2.
+    // O segundo item derivaria "varanda", que já é de outro — vai para -2.
     expect(
       resolveSlugs([
-        { slug: 'pezinho', name: 'Outra coisa' },
-        { slug: '', name: 'Pezinho' },
+        { slug: 'varanda', name: 'Outra coisa' },
+        { slug: '', name: 'Varanda' },
       ]),
-    ).toEqual(['pezinho', 'pezinho-2'])
+    ).toEqual(['varanda', 'varanda-2'])
   })
 
   it('desempata nomes iguais sem slug', () => {
     expect(
       resolveSlugs([
-        { slug: '', name: 'Corte' },
-        { slug: '', name: 'Corte' },
+        { slug: '', name: 'Salão' },
+        { slug: '', name: 'Salão' },
       ]),
-    ).toEqual(['corte', 'corte-2'])
+    ).toEqual(['salao', 'salao-2'])
   })
 })
 
-describe('paraGravar — serviços', () => {
-  it('carimba o slug do serviço novo a partir do nome', () => {
-    const { services } = mudanca({ services: [{ slug: '', name: 'Pezinho', price: 'R$ 20' }] })
-    expect(services).toEqual([
-      expect.objectContaining({ slug: 'pezinho', name: 'Pezinho', price: 'R$ 20' }),
+describe('paraGravar — ambientes', () => {
+  it('carimba o slug do ambiente novo a partir do nome', () => {
+    const { areas } = mudanca({ areas: [{ slug: '', name: 'Varanda', capacity: 20 }] })
+    expect(areas).toEqual([
+      expect.objectContaining({ slug: 'varanda', name: 'Varanda', capacity: 20, bookable: true }),
     ])
   })
 
-  it('renomear NÃO mexe no slug — é o mesmo serviço no banco', () => {
-    const { services } = mudanca({
-      services: [{ slug: 'corte-barba', name: 'Corte + Barba Premium', price: 'R$ 89' }],
+  it('renomear NÃO mexe no slug — é o mesmo ambiente no banco', () => {
+    const { areas } = mudanca({
+      areas: [{ slug: 'salao', name: 'Salão Principal', capacity: 50 }],
     })
-    expect(services).toEqual([
-      expect.objectContaining({ slug: 'corte-barba', name: 'Corte + Barba Premium' }),
-    ])
+    expect(areas).toEqual([expect.objectContaining({ slug: 'salao', name: 'Salão Principal' })])
   })
 
-  it('descarta o item sem nome, em vez de gravar um serviço fantasma', () => {
-    const { services } = mudanca({ services: [{ slug: '', name: '   ', price: 'R$ 10' }] })
-    expect(services).toEqual([])
+  it('descarta o item sem nome, em vez de gravar um ambiente fantasma', () => {
+    const { areas } = mudanca({ areas: [{ slug: '', name: '   ', capacity: 10 }] })
+    expect(areas).toEqual([])
   })
 
-  it('não deixa dois serviços com o mesmo slug', () => {
-    const { services } = mudanca({
-      services: [
-        { slug: 'corte', name: 'Corte' },
-        { slug: '', name: 'Corte' },
+  it('não deixa dois ambientes com o mesmo slug', () => {
+    const { areas } = mudanca({
+      areas: [
+        { slug: 'salao', name: 'Salão' },
+        { slug: '', name: 'Salão' },
       ],
     })
-    expect((services as { slug: string }[]).map((s) => s.slug)).toEqual(['corte', 'corte-2'])
+    expect((areas as { slug: string }[]).map((a) => a.slug)).toEqual(['salao', 'salao-2'])
+  })
+
+  it('lotação inválida vira 0 em vez de número negativo', () => {
+    const { areas } = mudanca({ areas: [{ slug: 'adega', name: 'Adega', capacity: -5 }] })
+    expect((areas as { capacity: number }[])[0]!.capacity).toBe(0)
+  })
+})
+
+describe('paraGravar — cardápio', () => {
+  it('grava link e pratos, com slug carimbado', () => {
+    const { menu } = mudanca({
+      menu: {
+        url: 'https://exemplo.com/cardapio.pdf',
+        items: [{ slug: '', name: 'Tiramisù', category: 'Sobremesas', price: 'R$ 32', highlight: true }],
+      },
+    })
+    expect(menu).toEqual({
+      url: 'https://exemplo.com/cardapio.pdf',
+      items: [
+        expect.objectContaining({ slug: 'tiramisu', name: 'Tiramisù', price: 'R$ 32', highlight: true }),
+      ],
+    })
+  })
+
+  it('prato sem nome não vai para o arquivo', () => {
+    const { menu } = mudanca({ menu: { url: '', items: [{ slug: '', name: '' }] } })
+    expect((menu as { items: unknown[] }).items).toEqual([])
   })
 })
 
 describe('paraGravar — seções preservadas', () => {
   it('mexe só nos campos do estúdio e mantém o resto do JSON como estava', () => {
     const bruto = {
-      contact: { whatsapp: '11999', address: 'Rua A', social: { instagram: '@barbearia' } },
+      contact: { whatsapp: '11999', address: 'Rua A', social: { instagram: '@cantina' } },
     }
     const { contact } = mudanca({ contact: { address: 'Rua B' } }, DEFAULT_CONFIG, bruto)
 
     // O "@" do Instagram é do arquivo, não do estúdio: sai intacto.
     expect(contact).toEqual(
-      expect.objectContaining({ address: 'Rua B', social: { instagram: '@barbearia' } }),
+      expect.objectContaining({ address: 'Rua B', social: { instagram: '@cantina' } }),
     )
   })
 
   it('não devolve seção que o dono não mandou', () => {
-    expect(Object.keys(mudanca({ services: [] }))).toEqual(['services'])
+    expect(Object.keys(mudanca({ areas: [] }))).toEqual(['areas'])
   })
 
   it('grava as horas do painel do dono, e o normalize as aceita', () => {
@@ -141,15 +166,15 @@ describe('paraGravar — seções preservadas', () => {
     expect((whatsapp as { owner: { phones: string[] } }).owner.phones).toEqual(['(11) 93333-3333'])
   })
 
-  it('grava o telefone do barbeiro cru, do jeito que foi digitado', () => {
+  it('grava o telefone do colaborador cru, do jeito que foi digitado', () => {
     const { team } = mudanca({
-      team: [{ slug: 'rafael', name: 'Rafael', phone: '(11) 98888-7766' }],
+      team: [{ slug: 'giulia', name: 'Giulia', phone: '(11) 98888-7766' }],
     })
     expect((team as { phone: string }[])[0]!.phone).toBe('(11) 98888-7766')
   })
 
-  it('barbeiro sem telefone continua válido — ele só não tem painel', () => {
-    const { team } = mudanca({ team: [{ slug: 'rafael', name: 'Rafael' }] })
+  it('colaborador sem telefone continua válido — ele só não tem painel', () => {
+    const { team } = mudanca({ team: [{ slug: 'giulia', name: 'Giulia' }] })
     expect((team as { phone: string }[])[0]!.phone).toBe('')
   })
 

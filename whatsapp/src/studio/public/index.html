@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Estúdio dos textos — barbearia</title>
+<title>Estúdio dos textos — restaurante</title>
 <style>
   :root {
     --bg: #10151b;
@@ -146,7 +146,7 @@
   .acoes { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
   .vazio { color: var(--muted); padding: 30px; text-align: center; }
 
-  /* --- conteúdo (serviços, equipe, horários, regras) --- */
+  /* --- conteúdo (cardápio, ambientes, equipe, horários, regras) --- */
   .grade { display: grid; gap: 10px; }
   .grade.duas { grid-template-columns: 1fr 1fr; }
   .grade.tres { grid-template-columns: 2fr 1fr 1fr; }
@@ -186,7 +186,7 @@
 
 <header>
   <h1>Estúdio dos textos <span>💈</span></h1>
-  <select id="tenant" title="Barbearia"></select>
+  <select id="tenant" title="Restaurante"></select>
   <input id="busca" class="campo" type="search" placeholder="Buscar texto…" />
   <div class="cresce"></div>
   <span id="branch" style="color:var(--muted);font-size:12.5px"></span>
@@ -214,7 +214,7 @@
   <h2>Publicar na branch <code id="modalBranch"></code></h2>
   <p style="color:var(--muted);font-size:13px;margin-top:0">
     Isto faz <code>add</code>, <code>commit</code> e <code>push</code> dos
-    <code>barbearia.config.json</code> das barbearias. Mais nada entra no commit.
+    <code>restaurante.config.json</code> dos restaurantes. Mais nada entra no commit.
   </p>
   <pre class="diff" id="modalDiff"></pre>
   <input id="modalMensagem" class="campo" style="width:100%;margin-top:12px"
@@ -230,11 +230,12 @@ const $ = (sel) => document.querySelector(sel)
 
 const MODOS = [
   { id: 'textos', nome: 'Textos' },
-  { id: 'services', nome: 'Serviços' },
+  { id: 'menu', nome: 'Cardápio' },
+  { id: 'areas', nome: 'Ambientes' },
   { id: 'team', nome: 'Equipe' },
   { id: 'hours', nome: 'Horários' },
   { id: 'contact', nome: 'Marca e contato' },
-  { id: 'booking', nome: 'Regras da agenda' },
+  { id: 'booking', nome: 'Regras das reservas' },
   { id: 'whatsapp', nome: 'Atendimento' },
 ]
 
@@ -252,7 +253,7 @@ const estado = {
   conteudo: null,      // o que está no disco
   rascunho: null,      // o que está na tela
   dias: [],
-  uso: { services: {}, barbers: {}, semBanco: true },
+  uso: { areas: {}, semBanco: true },
 }
 
 const emTextos = () => estado.modo === 'textos'
@@ -300,14 +301,14 @@ async function iniciar() {
   } catch { /* sem git, o resto do estúdio funciona igual */ }
 
   if (tenants.length === 0) {
-    $('#lista').innerHTML = '<p class="vazio">Nenhuma barbearia em whatsapp/tenants/.</p>'
+    $('#lista').innerHTML = '<p class="vazio">Nenhum restaurante em whatsapp/tenants/.</p>'
     return
   }
   await trocarTenant(tenants[0].slug)
 }
 
 async function trocarTenant(slug) {
-  if (sujo() && !confirm('Você tem edições não salvas. Trocar de barbearia vai descartá-las.')) {
+  if (sujo() && !confirm('Você tem edições não salvas. Trocar de restaurante vai descartá-las.')) {
     $('#tenant').value = estado.slug
     return
   }
@@ -319,7 +320,7 @@ async function trocarTenant(slug) {
   const [textos, conteudo, uso] = await Promise.all([
     api('GET', `/api/textos/${slug}`),
     api('GET', `/api/conteudo/${slug}`),
-    api('GET', `/api/conteudo/${slug}/uso`).catch(() => ({ services: {}, barbers: {}, semBanco: true })),
+    api('GET', `/api/conteudo/${slug}/uso`).catch(() => ({ areas: {}, semBanco: true })),
   ])
 
   estado.textos = textos.textos
@@ -575,7 +576,7 @@ function desenharPayload(payload) {
 // --- conteúdo -------------------------------------------------------------
 
 /**
- * Um campo ligado a um caminho do rascunho, ex.: `services.0.name`.
+ * Um campo ligado a um caminho do rascunho, ex.: `areas.0.name`.
  * Toda edição escreve no rascunho e redesenha a prévia — não a lista, para o
  * cursor não pular do lugar enquanto se digita.
  */
@@ -644,22 +645,33 @@ function marcarSujo() {
 }
 
 const acoesConteudo = {
-  novoServico: () => {
-    // slug vazio: o servidor carimba um na gravação, e ele nunca mais muda.
-    estado.rascunho.services.push({
-      slug: '', name: '', price: '', duration: '', durationMin: 0,
-      description: '', imageUrl: '', highlight: false, _novo: true,
+  novoPrato: () => {
+    estado.rascunho.menu.items.push({
+      slug: '', name: '', category: '', price: '', description: '', imageUrl: '', highlight: false, _novo: true,
     })
     redesenharConteudo()
   },
-  removerServico: ({ indice }) => {
-    const servico = estado.rascunho.services[Number(indice)]
-    const usos = estado.uso.services[servico.slug] ?? 0
+  removerPrato: ({ indice }) => {
+    const prato = estado.rascunho.menu.items[Number(indice)]
+    if (!confirm(`Remover "${prato.name || 'sem nome'}" do cardápio?`)) return
+    estado.rascunho.menu.items.splice(Number(indice), 1)
+    redesenharConteudo()
+  },
+  novoAmbiente: () => {
+    // slug vazio: o servidor carimba um na gravação, e ele nunca mais muda.
+    estado.rascunho.areas.push({
+      slug: '', name: '', description: '', capacity: 20, imageUrl: '', bookable: true, _novo: true,
+    })
+    redesenharConteudo()
+  },
+  removerAmbiente: ({ indice }) => {
+    const ambiente = estado.rascunho.areas[Number(indice)]
+    const usos = estado.uso.areas[ambiente.slug] ?? 0
     const aviso = usos
-      ? `\n\n${usos} agendamento(s) futuro(s) usam este serviço. Eles continuam valendo — você é quem avisa essas pessoas.`
+      ? `\n\n${usos} reserva(s) futura(s) estão neste ambiente. Elas continuam valendo — você é quem avisa essas pessoas.`
       : ''
-    if (!confirm(`Remover "${servico.name || 'sem nome'}"?${aviso}`)) return
-    estado.rascunho.services.splice(Number(indice), 1)
+    if (!confirm(`Remover "${ambiente.name || 'sem nome'}"?${aviso}`)) return
+    estado.rascunho.areas.splice(Number(indice), 1)
     redesenharConteudo()
   },
   novoDono: () => {
@@ -670,24 +682,20 @@ const acoesConteudo = {
     estado.rascunho.whatsapp.owner.phones.splice(Number(indice), 1)
     redesenharConteudo()
   },
-  novoBarbeiro: () => {
+  novoColaborador: () => {
     estado.rascunho.team.push({
-      slug: '', name: '', role: '', photoUrl: '', instagram: '', phone: '', bookable: true, _novo: true,
+      slug: '', name: '', role: '', photoUrl: '', instagram: '', phone: '', _novo: true,
     })
     redesenharConteudo()
   },
-  removerBarbeiro: ({ indice }) => {
-    const barbeiro = estado.rascunho.team[Number(indice)]
-    const usos = estado.uso.barbers[barbeiro.slug] ?? 0
-    const aviso = usos
-      ? `\n\n${usos} agendamento(s) futuro(s) são com esta pessoa. Eles continuam valendo — você é quem avisa os clientes.`
-      : ''
-    if (!confirm(`Remover "${barbeiro.name || 'sem nome'}" da equipe?${aviso}`)) return
+  removerColaborador: ({ indice }) => {
+    const membro = estado.rascunho.team[Number(indice)]
+    if (!confirm(`Remover "${membro.name || 'sem nome'}" da equipe?`)) return
     estado.rascunho.team.splice(Number(indice), 1)
     redesenharConteudo()
   },
   novaFaixa: ({ dia }) => {
-    estado.rascunho.hours[dia].push(['09:00', '18:00'])
+    estado.rascunho.hours[dia].push(['19:00', '23:00'])
     redesenharConteudo()
   },
   removerFaixa: ({ dia, indice }) => {
@@ -704,7 +712,8 @@ function redesenharConteudo() {
 
 function desenharConteudo() {
   $('#lista').innerHTML = ({
-    services: telaServicos,
+    menu: telaCardapio,
+    areas: telaAmbientes,
     team: telaEquipe,
     hours: telaHorarios,
     contact: telaMarca,
@@ -714,48 +723,85 @@ function desenharConteudo() {
   ligarCampos()
 }
 
-function telaServicos() {
-  const itens = estado.rascunho.services.map((servico, i) => {
-    const usos = estado.uso.services[servico.slug] ?? 0
-    return `
+function telaCardapio() {
+  const menu = estado.rascunho.menu
+  const itens = menu.items.map((prato, i) => `
       <div class="cartao item">
-        <button class="remover" data-acao="removerServico" data-indice="${i}">Remover</button>
+        <button class="remover" data-acao="removerPrato" data-indice="${i}">Remover</button>
         <div class="grade tres">
-          ${campo(`services.${i}.name`, servico.name, { rotulo: 'Nome' })}
-          ${campo(`services.${i}.price`, servico.price, { rotulo: 'Preço', dica: 'texto livre' })}
-          ${campo(`services.${i}.duration`, servico.duration, { rotulo: 'Duração', dica: '"40 min", "1h 10"' })}
+          ${campo(`menu.items.${i}.name`, prato.name, { rotulo: 'Prato' })}
+          ${campo(`menu.items.${i}.category`, prato.category, { rotulo: 'Categoria', dica: '"Massas", "Sobremesas"' })}
+          ${campo(`menu.items.${i}.price`, prato.price, { rotulo: 'Preço', dica: 'texto livre' })}
         </div>
         <div class="grade duas" style="margin-top:10px">
-          ${campo(`services.${i}.description`, servico.description, { rotulo: 'Descrição (site)' })}
-          ${campo(`services.${i}.imageUrl`, servico.imageUrl, { rotulo: 'Foto (site)' })}
+          ${campo(`menu.items.${i}.description`, prato.description, { rotulo: 'Descrição' })}
+          ${campo(`menu.items.${i}.imageUrl`, prato.imageUrl, { rotulo: 'Foto (site)' })}
         </div>
         <div class="rodapeCartao" style="margin-top:10px">
-          ${interruptor(`services.${i}.highlight`, servico.highlight, 'Destaque no site')}
-          ${identidade(servico)}
-          <span class="contador">${usos ? `${usos} agendamento(s) futuro(s)` : ''}</span>
+          ${interruptor(`menu.items.${i}.highlight`, prato.highlight, 'Destaque (site e WhatsApp)')}
+          ${identidade(prato)}
+        </div>
+      </div>`)
+
+  return `
+    <div class="cartao">
+      ${campo('menu.url', menu.url, {
+        rotulo: 'Link do cardápio completo',
+        dica: 'PDF, site ou app de delivery — vazio = só os destaques',
+      })}
+    </div>
+    <p class="ajuda" style="margin:0 0 12px">
+      Os pratos marcados como <strong>destaque</strong> são os que o bot manda no botão
+      "Ver cardápio", com o preço, seguidos do link do cardápio completo. No site, aparecem
+      todos, agrupados por categoria.
+    </p>
+    ${itens.join('') || '<p class="vazio">Nenhum prato. O botão "Ver cardápio" fica só com o link.</p>'}
+    <button class="btn novoItem" data-acao="novoPrato">+ Adicionar prato</button>`
+}
+
+function telaAmbientes() {
+  const itens = estado.rascunho.areas.map((ambiente, i) => {
+    const usos = estado.uso.areas[ambiente.slug] ?? 0
+    return `
+      <div class="cartao item">
+        <button class="remover" data-acao="removerAmbiente" data-indice="${i}">Remover</button>
+        <div class="grade duas">
+          ${campo(`areas.${i}.name`, ambiente.name, { rotulo: 'Nome', dica: '"Salão", "Varanda"' })}
+          ${campo(`areas.${i}.capacity`, ambiente.capacity, { tipo: 'number', rotulo: 'Lugares', dica: 'pessoas ao mesmo tempo' })}
+        </div>
+        <div class="grade duas" style="margin-top:10px">
+          ${campo(`areas.${i}.description`, ambiente.description, { rotulo: 'Descrição', dica: 'aparece na lista do WhatsApp' })}
+          ${campo(`areas.${i}.imageUrl`, ambiente.imageUrl, { rotulo: 'Foto (site)' })}
+        </div>
+        <div class="rodapeCartao" style="margin-top:10px">
+          ${interruptor(`areas.${i}.bookable`, ambiente.bookable, 'Aceita reserva pelo WhatsApp')}
+          ${identidade(ambiente)}
+          <span class="contador">${usos ? `${usos} reserva(s) futura(s)` : ''}</span>
         </div>
       </div>`
   })
 
   return `
     <p class="ajuda" style="margin:0 0 12px">
-      Estes são os serviços que o cliente vê no menu do WhatsApp <em>e</em> na landing page.
-      O identificador embaixo de cada um é o que liga o serviço aos agendamentos —
-      renomear não mexe nele, então o histórico continua certo.
+      Cada ambiente tem uma <strong>lotação em lugares</strong>: o bot só confirma uma reserva
+      se, somando as mesas que já estão no mesmo horário, ainda couber o grupo inteiro.
+      O identificador embaixo de cada um é o que liga o ambiente às reservas — renomear não
+      mexe nele, então o histórico continua certo.
     </p>
-    ${itens.join('') || '<p class="vazio">Nenhum serviço. Sem serviço o cliente não consegue agendar.</p>'}
-    <button class="btn novoItem" data-acao="novoServico">+ Adicionar serviço</button>`
+    <p class="ajuda" style="margin:0 0 12px">
+      Com um ambiente só, o bot nem pergunta onde o cliente quer sentar.
+    </p>
+    ${itens.join('') || '<p class="vazio">Nenhum ambiente: as reservas vão para um salão único de 40 lugares.</p>'}
+    <button class="btn novoItem" data-acao="novoAmbiente">+ Adicionar ambiente</button>`
 }
 
 function telaEquipe() {
-  const itens = estado.rascunho.team.map((membro, i) => {
-    const usos = estado.uso.barbers[membro.slug] ?? 0
-    return `
+  const itens = estado.rascunho.team.map((membro, i) => `
       <div class="cartao item">
-        <button class="remover" data-acao="removerBarbeiro" data-indice="${i}">Remover</button>
+        <button class="remover" data-acao="removerColaborador" data-indice="${i}">Remover</button>
         <div class="grade duas">
           ${campo(`team.${i}.name`, membro.name, { rotulo: 'Nome' })}
-          ${campo(`team.${i}.role`, membro.role, { rotulo: 'Função (site)' })}
+          ${campo(`team.${i}.role`, membro.role, { rotulo: 'Função (site)', dica: '"Chef", "Recepção"' })}
         </div>
         <div class="grade duas" style="margin-top:10px">
           ${campo(`team.${i}.photoUrl`, membro.photoUrl, { rotulo: 'Foto (site)' })}
@@ -763,30 +809,24 @@ function telaEquipe() {
         </div>
         <div class="grade duas" style="margin-top:10px">
           ${campo(`team.${i}.phone`, membro.phone, {
-            rotulo: 'WhatsApp (painel do barbeiro)',
+            rotulo: 'WhatsApp (painel da recepção)',
             dica: 'vazio = sem painel',
           })}
         </div>
         <div class="rodapeCartao" style="margin-top:10px">
-          ${interruptor(`team.${i}.bookable`, membro.bookable, 'Aceita agendamento pelo WhatsApp')}
           ${identidade(membro)}
-          <span class="contador">${usos ? `${usos} agendamento(s) futuro(s)` : ''}</span>
         </div>
-      </div>`
-  })
+      </div>`)
 
   return `
     <p class="ajuda" style="margin:0 0 12px">
-      Quem tem <strong>agendamento pelo WhatsApp</strong> desligado continua no site, mas some da
-      escolha de barbeiro. Equipe vazia vira uma agenda única no nome da barbearia.
+      A equipe aparece no site. Quem tiver <strong>WhatsApp</strong> preenchido ganha o painel
+      da recepção no bot: escrevendo desse número para o restaurante, vê as reservas de hoje e
+      de amanhã e marca quem chegou e quem faltou. Pausar o bot e fechar datas continua só com
+      o dono. O número não vai para o site.
     </p>
-    <p class="ajuda" style="margin:0 0 12px">
-      O <strong>WhatsApp</strong> de cada um é o que abre o painel dele no bot: escrevendo desse
-      número para a barbearia, ele vê a agenda dele, os cortes dele e tira folga. Quem fica sem
-      número é atendido como cliente, igual a antes. O número não vai para o site.
-    </p>
-    ${itens.join('') || '<p class="vazio">Sem equipe: a agenda é uma só, no nome da barbearia.</p>'}
-    <button class="btn novoItem" data-acao="novoBarbeiro">+ Adicionar pessoa</button>`
+    ${itens.join('') || '<p class="vazio">Sem equipe cadastrada.</p>'}
+    <button class="btn novoItem" data-acao="novoColaborador">+ Adicionar pessoa</button>`
 }
 
 function telaHorarios() {
@@ -822,7 +862,7 @@ function telaMarca() {
     <div class="cartao">
       <div class="secTitulo" style="margin-top:0">A marca</div>
       <div class="grade duas">
-        ${campo('brand.name', brand.name, { rotulo: 'Nome da barbearia', dica: 'aparece nas mensagens' })}
+        ${campo('brand.name', brand.name, { rotulo: 'Nome do restaurante', dica: 'aparece nas mensagens' })}
         ${campo('brand.tagline', brand.tagline, { rotulo: 'Slogan (site)' })}
       </div>
 
@@ -844,21 +884,36 @@ function telaRegras() {
   const b = estado.rascunho.booking
   return `
     <p class="ajuda" style="margin:0 0 12px">
-      As regras que decidem o que o cliente consegue fazer atrás do botão "Agendar".
+      As regras que decidem o que o cliente consegue fazer atrás do botão "Reservar mesa".
     </p>
     <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">A grade de horários</div>
       <div class="grade tres">
         ${campo('booking.slotStepMin', b.slotStepMin, { tipo: 'number', rotulo: 'Passo da grade', dica: 'minutos' })}
         ${campo('booking.leadTimeMin', b.leadTimeMin, { tipo: 'number', rotulo: 'Antecedência mínima', dica: 'minutos' })}
         ${campo('booking.horizonDays', b.horizonDays, { tipo: 'number', rotulo: 'Até quantos dias à frente' })}
       </div>
-      <div class="grade tres" style="margin-top:10px">
-        ${campo('booking.bufferMin', b.bufferMin, { tipo: 'number', rotulo: 'Folga entre atendimentos', dica: 'minutos' })}
-        ${campo('booking.maxPerContact', b.maxPerContact, { tipo: 'number', rotulo: 'Máximo por cliente' })}
-        ${campo('booking.cancelDeadlineHours', b.cancelDeadlineHours, { tipo: 'number', rotulo: 'Prazo p/ cancelar', dica: 'horas' })}
-      </div>
       <div class="grade duas" style="margin-top:10px">
-        ${campo('booking.defaultDurationMin', b.defaultDurationMin, { tipo: 'number', rotulo: 'Duração padrão', dica: 'quando o serviço não informa' })}
+        ${campo('booking.durationMin', b.durationMin, { tipo: 'number', rotulo: 'Quanto tempo a mesa fica ocupada', dica: 'minutos' })}
+        ${campo('booking.lastSeatingMin', b.lastSeatingMin, { tipo: 'number', rotulo: 'Última reserva antes de fechar', dica: 'minutos' })}
+      </div>
+    </div>
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">Grupos</div>
+      <div class="grade duas">
+        ${campo('booking.maxPartySize', b.maxPartySize, { tipo: 'number', rotulo: 'Maior grupo aceito', dica: 'pessoas' })}
+        ${campo('booking.approvalAbovePartySize', b.approvalAbovePartySize, { tipo: 'number', rotulo: 'Acima disto, o dono aprova', dica: '0 = confirma tudo direto' })}
+      </div>
+      <p class="ajuda">
+        Grupos maiores que o limite de aprovação seguram os lugares e esperam o dono tocar em
+        "Aprovar" ou "Recusar" no WhatsApp dele. Pedido sem resposta até o horário é recusado.
+      </p>
+    </div>
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">Por cliente</div>
+      <div class="grade duas">
+        ${campo('booking.maxPerContact', b.maxPerContact, { tipo: 'number', rotulo: 'Reservas futuras por cliente' })}
+        ${campo('booking.cancelDeadlineHours', b.cancelDeadlineHours, { tipo: 'number', rotulo: 'Prazo p/ cancelar', dica: 'horas' })}
       </div>
     </div>`
 }
@@ -870,7 +925,7 @@ function telaAtendimento() {
       <div class="secTitulo" style="margin-top:0">O que o cliente vê</div>
       ${campo('whatsapp.paymentMethods', w.paymentMethods, { rotulo: 'Formas de pagamento', dica: 'vazio tira a opção do menu' })}
       <div class="grade duas" style="margin-top:10px">
-        ${campo('whatsapp.reviewUrl', w.reviewUrl, { rotulo: 'Link de avaliação', dica: 'vazio desliga o pós-atendimento' })}
+        ${campo('whatsapp.reviewUrl', w.reviewUrl, { rotulo: 'Link de avaliação', dica: 'vazio desliga o pós-visita' })}
         ${campo('whatsapp.handoffMinutes', w.handoffMinutes, { tipo: 'number', rotulo: 'Silêncio após chamar atendente', dica: 'minutos' })}
       </div>
     </div>
@@ -889,9 +944,10 @@ function telaAtendimento() {
       </div>
       <button class="btn novoItem" data-acao="novoDono">+ Adicionar número</button>
       <p class="ajuda">
-        Estes números abrem o <strong>painel do dono</strong> no WhatsApp: agenda da casa inteira,
-        bloqueio de horário e pausa do bot. O <strong>primeiro</strong> é quem recebe os avisos
-        automáticos (agendamento novo, cancelamento, cliente pedindo atendente).
+        Estes números abrem o <strong>painel do dono</strong> no WhatsApp: reservas da casa,
+        pedidos de grupo para aprovar, relatório, fechar data e pausa do bot. O
+        <strong>primeiro</strong> é quem recebe os avisos automáticos (reserva nova, pedido de
+        grupo grande, cancelamento, cliente pedindo atendente).
         Deixar a lista vazia não tira o painel de ninguém — mantém o número que já está no
         servidor. O número não vai para o site.
       </p>
@@ -901,10 +957,10 @@ function telaAtendimento() {
       <div class="secTitulo" style="margin-top:0">O painel do dono</div>
       <div class="grade tres">
         ${campo('whatsapp.owner.pauseMinutes', w.owner.pauseMinutes, { tipo: 'number', rotulo: 'Duração da pausa do bot', dica: 'minutos' })}
-        ${campo('whatsapp.owner.afternoonStartHour', w.owner.afternoonStartHour, { tipo: 'number', rotulo: 'A tarde começa às', dica: 'hora' })}
-        ${campo('whatsapp.owner.eveningStartHour', w.owner.eveningStartHour, { tipo: 'number', rotulo: 'A noite começa às', dica: 'hora' })}
+        ${campo('whatsapp.owner.afternoonStartHour', w.owner.afternoonStartHour, { tipo: 'number', rotulo: 'O almoço começa às', dica: 'hora' })}
+        ${campo('whatsapp.owner.eveningStartHour', w.owner.eveningStartHour, { tipo: 'number', rotulo: 'O jantar começa às', dica: 'hora' })}
       </div>
-      <p class="ajuda">Usado nos botões "Pausar o bot" e "Bloquear horário" do menu do dono.</p>
+      <p class="ajuda">Usado para separar almoço e jantar nos horários e no botão "Fechar" do menu do dono.</p>
     </div>
 
     <div class="cartao">
@@ -916,7 +972,7 @@ function telaAtendimento() {
       <div style="margin-top:12px; display:grid; gap:8px">
         ${interruptor('whatsapp.messages.lembrete24h', w.messages.lembrete24h, 'Lembrete de 24h')}
         ${interruptor('whatsapp.messages.lembrete2h', w.messages.lembrete2h, 'Lembrete de 2h')}
-        ${interruptor('whatsapp.messages.posAtendimento', w.messages.posAtendimento, 'Pós-atendimento')}
+        ${interruptor('whatsapp.messages.posAtendimento', w.messages.posAtendimento, 'Pós-visita (pedido de avaliação)')}
         ${interruptor('whatsapp.messages.reativacao', w.messages.reativacao, 'Reativação (marketing)')}
         ${interruptor('whatsapp.messages.aniversario', w.messages.aniversario, 'Aniversário (marketing)')}
       </div>
@@ -980,7 +1036,7 @@ async function salvarConteudo() {
     const r = await api('PUT', `/api/conteudo/${estado.slug}`, estado.rascunho)
 
     // Relê do disco: o servidor carimba o slug dos itens novos, e a tela
-    // precisa passar a conhecê-lo — é ele que amarra o item aos agendamentos.
+    // precisa passar a conhecê-lo — é ele que amarra o item às reservas.
     const dados = await api('GET', `/api/conteudo/${estado.slug}`)
     estado.conteudo = dados.conteudo
     estado.rascunho = clonar(dados.conteudo)
@@ -1007,7 +1063,7 @@ async function abrirPublicar() {
           const classe = linha.startsWith('+') ? 'mais' : linha.startsWith('-') ? 'menos' : linha.startsWith('@@') || linha.startsWith('diff') ? 'cab' : ''
           return `<span class="${classe}">${escapar(linha)}</span>`
         }).join('\n')
-      : 'Nada alterado nos configs das barbearias.'
+      : 'Nada alterado nos configs dos restaurantes.'
     $('#modalPublicar').showModal()
   } catch (erro) {
     situacao(erro.message, 'erro')

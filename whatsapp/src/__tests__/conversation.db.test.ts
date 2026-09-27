@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { normalizeConfig } from '@barbearia/shared/config'
+import { normalizeConfig } from '@restaurante/shared/config'
 import { closePool, query, queryOne } from '../db/pool.js'
 import { migrate } from '../db/migrate.js'
 import { syncCatalog, upsertTenant } from '../db/repositories/tenants.js'
@@ -11,18 +11,23 @@ import type { OutgoingMessage } from '../whatsapp/payloads.js'
 import { processPayload } from '../whatsapp/webhook.js'
 
 /**
- * O atendimento inteiro, de "oi" até o horário marcado.
+ * O atendimento inteiro, de "oi" até a mesa reservada.
  *
  * Roda o webhook de verdade contra o banco de verdade, trocando só a saída para
  * a Meta por um cliente falso. É o teste que pega o que os testes de unidade não
  * pegam: contexto perdido entre telas, botão que aponta para lugar nenhum,
- * agendamento que não vira lembrete na fila.
+ * reserva que não vira lembrete na fila, pedido de grupo que não chega ao dono.
  */
 
 const temBanco = Boolean(env.databaseUrl)
 
 const PHONE_NUMBER_ID = '111122223333444'
 const CLIENTE = '5511977776666'
+const DONO = '5511900001111'
+const RECEPCAO = '5511955554444'
+
+/** Aberto todo dia, do almoço até tarde: sempre existe mesa "hoje" para o teste. */
+const TODOS: [string, string][] = [['12:00', '23:30']]
 
 /** Guarda o que teria sido enviado, em vez de falar com a Meta. */
 class FakeSender implements WhatsAppSender {
@@ -84,12 +89,13 @@ function opcaoComPrefixo(message: OutgoingMessage, prefixo: string): string {
 
 let sequencia = 0
 
-/** Simula o webhook da Meta com uma mensagem do cliente. */
-async function cliente(input: { texto?: string; toca?: string }): Promise<void> {
+/** Simula o webhook da Meta com uma mensagem de `from` (o cliente, por padrão). */
+async function cliente(input: { texto?: string; toca?: string; from?: string }): Promise<void> {
   sequencia += 1
+  const from = input.from ?? CLIENTE
   const message: Record<string, unknown> = {
     id: `wamid.in.${sequencia}`,
-    from: CLIENTE,
+    from,
     timestamp: String(Math.floor(Date.now() / 1000)),
   }
 
@@ -112,7 +118,7 @@ async function cliente(input: { texto?: string; toca?: string }): Promise<void> 
             value: {
               messaging_product: 'whatsapp',
               metadata: { phone_number_id: PHONE_NUMBER_ID },
-              contacts: [{ wa_id: CLIENTE, profile: { name: 'João Cliente' } }],
+              contacts: [{ wa_id: from, profile: { name: from === CLIENTE ? 'João Cliente' : 'Equipe' } }],
               messages: [message],
             },
           },
@@ -139,35 +145,44 @@ describe.skipIf(!temBanco)('conversa completa', () => {
     sequencia = 0
 
     const config = normalizeConfig({
-      brand: { name: 'Barbearia do Zé' },
+      brand: { name: 'Cantina do Zé' },
       contact: { whatsapp: '5511912345678', address: 'Rua das Palmeiras, 250' },
-      services: [
-        { name: 'Corte Degradê', price: 'R$ 45', duration: '40 min' },
-        { name: 'Corte + Barba', price: 'R$ 75', duration: '1h 10' },
+      menu: {
+        url: 'https://exemplo.com/cardapio.pdf',
+        items: [
+          { name: 'Lasanha da Nonna', price: 'R$ 68', category: 'Massas', highlight: true },
+          { name: 'Tiramisù', price: 'R$ 32', category: 'Sobremesas', highlight: true },
+          { name: 'Água com gás', price: 'R$ 8', category: 'Bebidas', highlight: false },
+        ],
+      },
+      areas: [
+        { name: 'Salão', capacity: 20 },
+        { name: 'Varanda', capacity: 10 },
       ],
       team: [
-        { name: 'Rafael', bookable: true },
-        { name: 'Diego', bookable: true },
+        { name: 'Giulia', role: 'Recepção', phone: RECEPCAO },
+        { name: 'Marco', role: 'Garçom' },
       ],
       hours: {
-        mon: [['09:00', '19:00']],
-        tue: [['09:00', '19:00']],
-        wed: [['09:00', '19:00']],
-        thu: [['09:00', '19:00']],
-        fri: [['09:00', '19:00']],
-        sat: [['09:00', '19:00']],
-        sun: [['09:00', '19:00']],
+        mon: TODOS,
+        tue: TODOS,
+        wed: TODOS,
+        thu: TODOS,
+        fri: TODOS,
+        sat: TODOS,
+        sun: TODOS,
       },
+      booking: { maxPartySize: 20, approvalAbovePartySize: 8, lastSeatingMin: 0, leadTimeMin: 0 },
       whatsapp: { paymentMethods: 'Pix e cartão' },
     })
 
     const tenant = await upsertTenant({
       slug: 'ze',
-      displayName: 'Barbearia do Zé',
+      displayName: 'Cantina do Zé',
       phoneNumberId: PHONE_NUMBER_ID,
       wabaId: 'waba-1',
       accessToken: 'token-falso',
-      ownerPhone: '',
+      ownerPhone: DONO,
       timezone: 'America/Sao_Paulo',
       config,
     })
@@ -175,56 +190,177 @@ describe.skipIf(!temBanco)('conversa completa', () => {
   })
 
   it('responde qualquer texto com o menu, sem tentar interpretar', async () => {
-    await cliente({ texto: 'boa tarde, vcs tem horário pra hoje?' })
+    await cliente({ texto: 'boa tarde, tem mesa pra hoje?' })
 
     expect(corpo(sender.ultima)).toContain('Não entendi')
-    expect(opcoes(sender.ultima)).toContain('menu:agendar')
+    expect(opcoes(sender.ultima)).toContain('menu:reservar')
   })
 
-  it('mostra os serviços com preço e duração', async () => {
+  it('mostra os destaques do cardápio com preço e o link do cardápio completo', async () => {
     await cliente({ texto: 'oi' })
-    await cliente({ toca: 'menu:servicos' })
+    await cliente({ toca: 'menu:cardapio' })
 
     const texto = corpo(sender.ultima)
-    expect(texto).toContain('Corte Degradê')
-    expect(texto).toContain('R$ 45')
-    expect(texto).toContain('40 min')
-    expect(texto).toContain('1h 10') // "1h 10" foi entendido como 70 minutos
+    expect(texto).toContain('Lasanha da Nonna')
+    expect(texto).toContain('R$ 68')
+    expect(texto).toContain('Tiramisù')
+    // Só os destaques: o resto fica no link.
+    expect(texto).not.toContain('Água com gás')
+    expect(texto).toContain('https://exemplo.com/cardapio.pdf')
   })
 
-  it('vai de "oi" até o horário marcado', async () => {
+  it('vai de "oi" até a mesa reservada', async () => {
     await cliente({ texto: 'oi' })
-    expect(opcoes(sender.ultima)).toContain('menu:agendar')
+    expect(opcoes(sender.ultima)).toContain('menu:reservar')
 
-    await cliente({ toca: 'menu:agendar' })
-    const servico = opcaoComPrefixo(sender.ultima, 'svc:')
+    await cliente({ toca: 'menu:reservar' })
+    expect(opcoes(sender.ultima)).toContain('pes:2')
 
-    await cliente({ toca: servico })
-    expect(opcoes(sender.ultima)).toContain('brb:any')
+    await cliente({ toca: 'pes:2' })
+    expect(opcoes(sender.ultima)).toContain('amb:any')
 
-    await cliente({ toca: 'brb:any' })
+    await cliente({ toca: 'amb:any' })
     const dia = opcaoComPrefixo(sender.ultima, 'day:')
 
     await cliente({ toca: dia })
     const horario = opcaoComPrefixo(sender.ultima, 'hor:')
 
     await cliente({ toca: horario })
-    expect(corpo(sender.ultima)).toContain('Confere para mim?')
+    expect(corpo(sender.ultima)).toContain('Confere a reserva')
     expect(opcoes(sender.ultima)).toContain('ok:sim')
 
     await cliente({ toca: 'ok:sim' })
-    expect(corpo(sender.ultima)).toContain('Agendamento confirmado')
+    expect(corpo(sender.ultima)).toContain('Mesa reservada')
 
-    const agendamento = await queryOne<{ status: string; barber: string }>(
-      `SELECT a.status, b.name AS barber FROM appointments a JOIN barbers b ON b.id = a.barber_id`,
+    const reserva = await queryOne<{ status: string; party_size: number; area: string }>(
+      `SELECT r.status, r.party_size, a.name AS area FROM reservations r JOIN areas a ON a.id = r.area_id`,
     )
-    expect(agendamento!.status).toBe('scheduled')
-    // "Sem preferência" resolveu para um barbeiro de verdade.
-    expect(['Rafael', 'Diego']).toContain(agendamento!.barber)
+    expect(reserva!.status).toBe('scheduled')
+    expect(reserva!.party_size).toBe(2)
+    // "Tanto faz" resolveu para um ambiente de verdade.
+    expect(['Salão', 'Varanda']).toContain(reserva!.area)
   })
 
-  it('enfileira os lembretes ao marcar, e nenhuma confirmação repetida', async () => {
-    await marcarUmHorario(1) // depois de amanhã: dá tempo para o lembrete de véspera
+  it('o link do ambiente no site pula a escolha do ambiente', async () => {
+    await cliente({ texto: 'Olá, Cantina do Zé! Gostaria de reservar uma mesa na Varanda.' })
+    expect(opcoes(sender.ultima)).toContain('pes:2')
+
+    await cliente({ toca: 'pes:2' })
+    // Direto para os dias: o ambiente já veio da mensagem.
+    opcaoComPrefixo(sender.ultima, 'day:')
+
+    await reservarAteOFim()
+    const reserva = await queryOne<{ area: string }>(
+      'SELECT a.name AS area FROM reservations r JOIN areas a ON a.id = r.area_id',
+    )
+    expect(reserva!.area).toBe('Varanda')
+  })
+
+  it('grupo que não cabe na varanda nem aparece com ela na lista', async () => {
+    await cliente({ toca: 'menu:reservar' })
+    await cliente({ toca: 'pes:mais' })
+    await cliente({ texto: '12' })
+
+    // 12 pessoas: só o Salão (20) comporta. Com um ambiente só, o bot não pergunta.
+    opcaoComPrefixo(sender.ultima, 'day:')
+  })
+
+  it('grupo acima do máximo vai para o atendente, não para a grade', async () => {
+    await cliente({ toca: 'menu:reservar' })
+    await cliente({ toca: 'pes:mais' })
+    await cliente({ texto: '30 pessoas' })
+
+    expect(corpo(sender.ultima)).toContain('combinar')
+    expect(opcoes(sender.ultima)).toContain('menu:atendente')
+  })
+
+  it('grupo grande vira pedido, o dono aprova pelo WhatsApp e o cliente é avisado', async () => {
+    // O dono falou com o número há pouco: está dentro da janela de 24h.
+    await cliente({ texto: 'menu', from: DONO })
+    sender.limpar()
+
+    await cliente({ toca: 'menu:reservar' })
+    await cliente({ toca: 'pes:mais' })
+    await cliente({ texto: '10' })
+    await cliente({ toca: 'amb:any' })
+    await reservarAteOFim()
+    expect(corpo(sender.ultima)).toContain('Pedido enviado')
+
+    const pedido = await queryOne<{ id: string; status: string }>('SELECT id, status FROM reservations')
+    expect(pedido!.status).toBe('pending')
+
+    // O aviso com os botões foi para a fila do dono.
+    const aviso = await queryOne<{ payload: unknown }>(
+      `SELECT payload FROM outbox WHERE dedupe_key = $1`,
+      [`${pedido!.id}:avisoDono:pedido`],
+    )
+    expect(JSON.stringify(aviso!.payload)).toContain(`dono:aprovar:${pedido!.id}`)
+
+    // Pedido pendente não recebe lembrete — ainda não é uma reserva.
+    const lembretes = await query(`SELECT 1 FROM outbox WHERE kind LIKE 'lembrete%'`)
+    expect(lembretes).toHaveLength(0)
+
+    await cliente({ toca: `dono:aprovar:${pedido!.id}`, from: DONO })
+
+    const depois = await queryOne<{ status: string }>('SELECT status FROM reservations')
+    expect(depois!.status).toBe('scheduled')
+    const paraOCliente = sender.enviadas.filter((m) => m.to === CLIENTE).map(corpo)
+    expect(paraOCliente.some((texto) => texto.includes('Reserva confirmada'))).toBe(true)
+
+    // Tocar de novo (o dono tem dois celulares) não faz nada de novo.
+    await cliente({ toca: `dono:recusar:${pedido!.id}`, from: DONO })
+    const final = await queryOne<{ status: string }>('SELECT status FROM reservations')
+    expect(final!.status).toBe('scheduled')
+  })
+
+  it('o dono recusa e os lugares voltam', async () => {
+    await cliente({ toca: 'menu:reservar' })
+    await cliente({ toca: 'pes:mais' })
+    await cliente({ texto: '10' })
+    await cliente({ toca: 'amb:any' })
+    await reservarAteOFim()
+
+    const pedido = await queryOne<{ id: string }>('SELECT id FROM reservations')
+    await cliente({ toca: `dono:recusar:${pedido!.id}`, from: DONO })
+
+    const depois = await queryOne<{ status: string }>('SELECT status FROM reservations')
+    expect(depois!.status).toBe('declined')
+    const paraOCliente = sender.enviadas.filter((m) => m.to === CLIENTE).map(corpo)
+    expect(paraOCliente.some((texto) => texto.includes('não vamos conseguir'))).toBe(true)
+  })
+
+  it('a recepção vê as reservas de hoje e marca a chegada', async () => {
+    await marcarUmaMesa(0)
+    const reserva = await queryOne<{ id: string }>('SELECT id FROM reservations')
+    sender.limpar()
+
+    await cliente({ texto: 'oi', from: RECEPCAO })
+    expect(corpo(sender.ultima)).toContain('Giulia')
+    expect(opcoes(sender.ultima)).toContain('recepcao:chegadas')
+
+    await cliente({ toca: 'recepcao:chegadas', from: RECEPCAO })
+    expect(opcoes(sender.ultima)).toContain(`recepcao:res:${reserva!.id}`)
+
+    await cliente({ toca: `recepcao:chegou:${reserva!.id}`, from: RECEPCAO })
+    expect(corpo(sender.ultima)).toContain('chegou')
+
+    const status = await queryOne<{ status: string }>('SELECT status FROM reservations')
+    expect(status!.status).toBe('arrived')
+  })
+
+  it('a recepção não tem os botões do dono', async () => {
+    await cliente({ texto: 'oi', from: RECEPCAO })
+    const menu = opcoes(sender.ultima)
+    expect(menu.some((id) => id.startsWith('dono:'))).toBe(false)
+
+    // Um botão do dono digitado à mão não abre nada.
+    await cliente({ toca: 'dono:pausar', from: RECEPCAO })
+    const tenant = await queryOne<{ bot_paused_until: Date | null }>('SELECT bot_paused_until FROM tenants')
+    expect(tenant!.bot_paused_until).toBeNull()
+  })
+
+  it('enfileira os lembretes ao reservar, e nenhuma confirmação repetida', async () => {
+    await marcarUmaMesa(2) // depois de amanhã: dá tempo para o lembrete de véspera
 
     const fila = await query<{ kind: string; status: string; scheduled_for: Date }>(
       'SELECT kind, status, scheduled_for FROM outbox ORDER BY scheduled_for',
@@ -242,15 +378,15 @@ describe.skipIf(!temBanco)('conversa completa', () => {
     // vezes seguidas.
     expect(tipos).not.toContain('confirmacao')
     const repetidas = await query<{ id: string }>(
-      `SELECT id FROM outbox WHERE payload::text LIKE '%Agendamento confirmado%'`,
+      `SELECT id FROM outbox WHERE payload::text LIKE '%Mesa reservada%'`,
     )
     expect(repetidas).toHaveLength(0)
   })
 
-  it('não agenda lembrete de 24h para um corte que é hoje ou amanhã cedo', async () => {
-    // Marcar para daqui a poucas horas: a véspera já passou, então o lembrete
+  it('não agenda lembrete de 24h para uma mesa que é hoje', async () => {
+    // Reservar para daqui a poucas horas: a véspera já passou, então o lembrete
     // de 24h não faz sentido e não pode entrar na fila.
-    await marcarUmHorario(0)
+    await marcarUmaMesa(0)
 
     const lembretes = await query<{ kind: string }>(
       `SELECT kind FROM outbox WHERE kind = 'lembrete24h'`,
@@ -258,24 +394,24 @@ describe.skipIf(!temBanco)('conversa completa', () => {
     expect(lembretes).toHaveLength(0)
   })
 
-  it('cancelar devolve o horário e limpa os lembretes da fila', async () => {
-    await marcarUmHorario()
+  it('cancelar devolve os lugares e limpa os lembretes da fila', async () => {
+    await marcarUmaMesa(1)
 
     await cliente({ toca: 'menu' })
-    await cliente({ toca: 'menu:meus' })
-    const agendamento = opcaoComPrefixo(sender.ultima, 'apt:')
+    await cliente({ toca: 'menu:minhas' })
+    const reserva = opcaoComPrefixo(sender.ultima, 'res:')
 
-    await cliente({ toca: agendamento })
-    const cancelar = opcaoComPrefixo(sender.ultima, 'apt:cancelar:')
+    await cliente({ toca: reserva })
+    const cancelar = opcaoComPrefixo(sender.ultima, 'res:cancelar:')
 
     await cliente({ toca: cancelar })
-    expect(corpo(sender.ultima)).toContain('Cancelar o horário')
+    expect(corpo(sender.ultima)).toContain('Cancelar a reserva')
 
     const confirmar = opcaoComPrefixo(sender.ultima, 'del:sim:')
     await cliente({ toca: confirmar })
-    expect(corpo(sender.ultima)).toContain('cancelado')
+    expect(corpo(sender.ultima)).toContain('cancelada')
 
-    const status = await queryOne<{ status: string }>('SELECT status FROM appointments')
+    const status = await queryOne<{ status: string }>('SELECT status FROM reservations')
     expect(status!.status).toBe('cancelled')
 
     // Os lembretes que ainda não saíram não podem chegar depois do cancelamento.
@@ -333,7 +469,7 @@ describe.skipIf(!temBanco)('conversa completa', () => {
     expect(sender.enviadas.length).toBeGreaterThan(antes)
   })
 
-  it('mensagem para um número que não é de nenhuma barbearia é ignorada', async () => {
+  it('mensagem para um número que não é de nenhum restaurante é ignorada', async () => {
     const antes = sender.enviadas.length
 
     await processPayload({
@@ -354,67 +490,64 @@ describe.skipIf(!temBanco)('conversa completa', () => {
     expect(sender.enviadas.length).toBe(antes)
   })
 
-  it('respeita o limite de agendamentos por cliente', async () => {
-    // Os dois primeiros entram direto no banco: percorrer o menu duas vezes só
-    // para chegar no terceiro gastaria toques à toa (e esbarraria no freio
+  it('respeita o limite de reservas por cliente', async () => {
+    // As duas primeiras entram direto no banco: percorrer o menu duas vezes só
+    // para chegar na terceira gastaria toques à toa (e esbarraria no freio
     // contra enxurrada, que é outro teste).
-    await semearAgendamentos(2)
+    await semearReservas(2)
 
-    // O terceiro esbarra no maxPerContact (padrão: 2).
+    // A terceira esbarra no maxPerContact (padrão: 2).
     await cliente({ toca: 'menu' })
-    await cliente({ toca: 'menu:agendar' })
-    const servico = opcaoComPrefixo(sender.ultima, 'svc:')
-    await cliente({ toca: servico })
-    await cliente({ toca: 'brb:any' })
-    const dia = opcaoComPrefixo(sender.ultima, 'day:')
-    await cliente({ toca: dia })
-    const horario = opcaoComPrefixo(sender.ultima, 'hor:')
-    await cliente({ toca: horario })
-    await cliente({ toca: 'ok:sim' })
+    await cliente({ toca: 'menu:reservar' })
+    await cliente({ toca: 'pes:2' })
+    await cliente({ toca: 'amb:any' })
+    await reservarAteOFim()
 
     expect(corpo(sender.ultima)).toContain('já tem')
   })
 
-  /** Cria N agendamentos futuros para o cliente, direto no banco. */
-  async function semearAgendamentos(quantos: number): Promise<void> {
+  /** Cria N reservas futuras para o cliente, direto no banco. */
+  async function semearReservas(quantas: number): Promise<void> {
     const contato = await upsertContact(
       (await queryOne<{ id: string }>('SELECT id FROM tenants'))!.id,
       CLIENTE,
       'João Cliente',
       new Date(),
     )
-    const barbeiro = await queryOne<{ id: string }>('SELECT id FROM barbers LIMIT 1')
-    const servico = await queryOne<{ id: string }>('SELECT id FROM services LIMIT 1')
+    const ambiente = await queryOne<{ id: string }>(`SELECT id FROM areas WHERE name = 'Salão'`)
 
-    for (let i = 0; i < quantos; i += 1) {
+    for (let i = 0; i < quantas; i += 1) {
       const inicio = new Date(Date.now() + (i + 3) * 24 * 60 * 60 * 1000)
       await query(
-        `INSERT INTO appointments (tenant_id, contact_id, barber_id, service_id, starts_at, ends_at)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [contato.tenantId, contato.id, barbeiro!.id, servico!.id, inicio, new Date(inicio.getTime() + 40 * 60_000)],
+        `INSERT INTO reservations (tenant_id, contact_id, area_id, party_size, starts_at, ends_at)
+         VALUES ($1, $2, $3, 2, $4, $5)`,
+        [contato.tenantId, contato.id, ambiente!.id, inicio, new Date(inicio.getTime() + 120 * 60_000)],
       )
     }
   }
 
-  /**
-   * Percorre o fluxo até confirmar.
-   *
-   * `diaIndex` escolhe qual dia da lista tocar: o lembrete de 24h só entra na
-   * fila quando o corte está a mais de um dia de distância, então o teste dele
-   * precisa de um dia mais à frente.
-   */
-  async function marcarUmHorario(diaIndex = 0): Promise<void> {
-    await cliente({ toca: 'menu' })
-    await cliente({ toca: 'menu:agendar' })
-    const servico = opcaoComPrefixo(sender.ultima, 'svc:')
-    await cliente({ toca: servico })
-    await cliente({ toca: 'brb:any' })
-
+  /** Da lista de dias em diante: toca no dia, no primeiro horário e confirma. */
+  async function reservarAteOFim(diaIndex = 0): Promise<void> {
     const dias = opcoes(sender.ultima).filter((id) => id.startsWith('day:') && !id.startsWith('day:mais'))
     await cliente({ toca: dias[diaIndex]! })
 
     const horario = opcaoComPrefixo(sender.ultima, 'hor:')
     await cliente({ toca: horario })
     await cliente({ toca: 'ok:sim' })
+  }
+
+  /**
+   * Percorre o fluxo de um casal até confirmar.
+   *
+   * `diaIndex` escolhe qual dia da lista tocar: o lembrete de 24h só entra na
+   * fila quando a mesa está a mais de um dia de distância, então o teste dele
+   * precisa de um dia mais à frente.
+   */
+  async function marcarUmaMesa(diaIndex = 0): Promise<void> {
+    await cliente({ toca: 'menu' })
+    await cliente({ toca: 'menu:reservar' })
+    await cliente({ toca: 'pes:2' })
+    await cliente({ toca: 'amb:any' })
+    await reservarAteOFim(diaIndex)
   }
 })

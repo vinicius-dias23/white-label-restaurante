@@ -36,7 +36,7 @@ export function decryptSecret(packed: Buffer): string {
   } catch {
     // Erro de autenticação quase sempre é APP_ENCRYPTION_KEY trocada.
     throw new Error(
-      'não foi possível decifrar o token da barbearia — a APP_ENCRYPTION_KEY mudou? ' +
+      'não foi possível decifrar o token do restaurante — a APP_ENCRYPTION_KEY mudou? ' +
         'Recadastre com: npm run tenant:add',
     )
   }
