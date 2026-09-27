@@ -36,7 +36,7 @@ try {
 }
 
 if (!Array.isArray(tenants)) {
-  console.error('✖ deploy/tenants.json precisa ser uma lista de barbearias')
+  console.error('✖ deploy/tenants.json precisa ser uma lista de restaurantes')
   process.exit(1)
 }
 
@@ -60,21 +60,21 @@ for (const [i, t] of tenants.entries()) {
   slugs.push(t.slug)
   if (t.dominio) dominios.push(t.dominio.toLowerCase())
 
-  // Uma barbearia desligada pode estar sendo montada ainda: a pasta pode não
-  // existir, e isso não é erro. O que não pode é uma ATIVA sem config, porque é
-  // ela que vai para o ar.
+  // Um restaurante desligado pode estar sendo montado ainda: a pasta pode não
+  // existir, e isso não é erro. O que não pode é um ATIVO sem config, porque é
+  // ele que vai para o ar.
   const dir = join(TENANTS_DIR, t.slug)
-  const config = join(dir, 'barbearia.config.json')
+  const config = join(dir, 'restaurante.config.json')
 
   if (!existsSync(config)) {
-    const mensagem = `${onde}: falta whatsapp/tenants/${t.slug}/barbearia.config.json`
+    const mensagem = `${onde}: falta whatsapp/tenants/${t.slug}/restaurante.config.json`
     if (t.ativo) erro(mensagem)
-    else avisos.push(`${mensagem} (inativa, então não impede o deploy)`)
+    else avisos.push(`${mensagem} (inativo, então não impede o deploy)`)
   } else if (t.ativo) {
     try {
       JSON.parse(readFileSync(config, 'utf8'))
     } catch (causa) {
-      erro(`${onde}: barbearia.config.json não é um JSON válido — ${causa.message}`)
+      erro(`${onde}: restaurante.config.json não é um JSON válido — ${causa.message}`)
     }
   }
 
@@ -98,5 +98,5 @@ for (const e of erros) console.error(`✖ ${e}`)
 
 if (erros.length) process.exit(1)
 
-const ativas = tenants.filter((t) => t.ativo).length
-console.log(`✔ ${tenants.length} barbearia(s) no manifesto, ${ativas} ativa(s) — tudo no lugar`)
+const ativos = tenants.filter((t) => t.ativo).length
+console.log(`✔ ${tenants.length} restaurante(s) no manifesto, ${ativos} ativo(s) — tudo no lugar`)

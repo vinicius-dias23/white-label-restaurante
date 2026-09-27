@@ -28,7 +28,7 @@ npm run templates:check
 
 ---
 
-## 1. `lembrete_24h` — véspera do atendimento
+## 1. `lembrete_24h` — véspera da reserva
 
 | | |
 |---|---|
@@ -40,32 +40,36 @@ npm run templates:check
 **Corpo:**
 
 ```
-Oi, {{1}}! Passando para lembrar do seu horário na {{2}} 💈
+Oi, {{1}}! Passando para lembrar da sua reserva na {{2}} 🍽️
 
-{{3}}
+👥 {{3}}
 📅 {{4}}
 
-Vai conseguir vir?
+Vocês vêm?
 ```
 
 **Botões** (resposta rápida, exatamente nesta ordem):
 
-1. `Confirmo presença`
-2. `Preciso cancelar`
+1. `Confirmo`
+2. `Cancelar`
 
 **Exemplos para a aprovação** (a Meta exige preencher):
 
 | Variável | Exemplo |
 |---|---|
-| `{{1}}` | João |
-| `{{2}}` | Barbearia do Zé |
-| `{{3}}` | Corte + Barba |
-| `{{4}}` | sexta, 22/08 às 14:30 |
+| `{{1}}` | Marina |
+| `{{2}}` | Cantina Bella Nonna |
+| `{{3}}` | 4 pessoas |
+| `{{4}}` | sexta, 22/08 às 20:30 |
 
-> Os dois botões voltam para o bot já sabendo de qual agendamento se trata, e
-> "Preciso cancelar" cai direto na tela de confirmação de cancelamento. É a
-> mensagem que mais reduz falta: o horário desmarcado na véspera ainda dá tempo
-> de ser ocupado por outra pessoa.
+> Os dois botões voltam para o bot já sabendo de qual reserva se trata.
+> "Confirmo" marca a reserva como `confirmed` — é o que a recepção vê como
+> "confirmada" na lista do dia — e "Cancelar" cai direto na tela de confirmação
+> de cancelamento. É a mensagem que mais reduz mesa vazia: os lugares liberados
+> na véspera ainda dão tempo de outro grupo reservar.
+>
+> O `{{3}}` já chega escrito ("4 pessoas", "1 pessoa"), com o texto de
+> `rotulos.pessoa.*` do catálogo.
 
 ---
 
@@ -81,25 +85,25 @@ Vai conseguir vir?
 **Corpo:**
 
 ```
-{{1}}, seu horário na {{2}} é hoje às {{3}} ⏰
+{{1}}, sua mesa na {{2}} é hoje às {{3}} ⏰
 
 Te esperamos!
 ```
 
 | Variável | Exemplo |
 |---|---|
-| `{{1}}` | João |
-| `{{2}}` | Barbearia do Zé |
-| `{{3}}` | 14:30 |
+| `{{1}}` | Marina |
+| `{{2}}` | Cantina Bella Nonna |
+| `{{3}}` | 20:30 |
 
-> Sem botões, de propósito: a essa altura não dá mais tempo de preencher o
-> horário vago, e quem precisar falar responde a mensagem normalmente.
+> Sem botões, de propósito: a essa altura não dá mais tempo de outro grupo
+> ocupar a mesa, e quem precisar falar responde a mensagem normalmente.
 > Este lembrete **não** é adiado pelo silêncio noturno — um lembrete de 2h
 > adiado não serve para nada. Se ele cairia de madrugada, simplesmente não vai.
 
 ---
 
-## 3. `pos_atendimento` — agradecimento e avaliação
+## 3. `pos_atendimento` — pós-visita: agradecimento e avaliação
 
 | | |
 |---|---|
@@ -111,26 +115,34 @@ Te esperamos!
 **Corpo:**
 
 ```
-Opa, {{1}}! Tudo certo com o corte? 💈
+Oi, {{1}}! Obrigado por vir à {{2}} 🍷
 
-Se curtiu, uma avaliação ajuda demais a {{2}} a aparecer para mais gente.
+Se gostou, uma avaliação ajuda demais a gente a aparecer para mais gente.
 ```
 
 **Botão** (visitar site):
 
 - Texto: `Avaliar`
-- URL: o link de avaliação da barbearia (o mesmo de `whatsapp.reviewUrl`)
+- URL: o link de avaliação do restaurante (o mesmo de `whatsapp.reviewUrl`)
 
 | Variável | Exemplo |
 |---|---|
-| `{{1}}` | João |
-| `{{2}}` | Barbearia do Zé |
+| `{{1}}` | Marina |
+| `{{2}}` | Cantina Bella Nonna |
 
+> O nome continua `pos_atendimento` (e a chave interna, `posAtendimento`) para
+> não obrigar quem já tem o template aprovado a cadastrar outro. No estúdio ele
+> aparece como "pos_visita". Se preferir o nome novo, cadastre com ele e ajuste
+> `TEMPLATE_POS_ATENDIMENTO` no `.env`.
+>
+> Sai no dia seguinte, só para reserva concluída: quem a recepção marcou como
+> falta (`no_show`) ou quem cancelou não recebe agradecimento.
+>
 > Quando o cliente ainda está dentro da janela de 24h — respondeu o lembrete, por
 > exemplo — o sistema manda a versão interativa com o botão de link em vez do
 > template. Mesma mensagem, sem gastar template e sem custo.
 >
-> Exige `whatsapp.reviewUrl` preenchido no `barbearia.config.json`.
+> Exige `whatsapp.reviewUrl` preenchido no `restaurante.config.json`.
 
 ---
 
@@ -146,9 +158,9 @@ Se curtiu, uma avaliação ajuda demais a {{2}} a aparecer para mais gente.
 **Corpo:**
 
 ```
-{{1}}, faz {{3}} dias que a gente não te vê aqui na {{2}} 💈
+{{1}}, faz {{3}} dias que a gente não te vê aqui na {{2}} 🍝
 
-Bora marcar um horário? É só responder esta mensagem.
+Bora reservar uma mesa? É só responder esta mensagem.
 ```
 
 **Rodapé** (obrigatório em marketing):
@@ -159,8 +171,8 @@ Responda SAIR para não receber mais
 
 | Variável | Exemplo |
 |---|---|
-| `{{1}}` | João |
-| `{{2}}` | Barbearia do Zé |
+| `{{1}}` | Marina |
+| `{{2}}` | Cantina Bella Nonna |
 | `{{3}}` | 45 |
 
 > ⚠️ **Leia antes de ligar.** Template de marketing:
@@ -188,7 +200,7 @@ Responda SAIR para não receber mais
 ```
 Parabéns, {{1}}! 🎉
 
-A {{2}} deseja um ótimo dia. Passa aqui para comemorar com um corte novo!
+A {{2}} deseja um ótimo dia. Que tal comemorar com a gente? Reserve sua mesa por aqui!
 ```
 
 **Rodapé:**
@@ -199,11 +211,11 @@ Responda SAIR para não receber mais
 
 | Variável | Exemplo |
 |---|---|
-| `{{1}}` | João |
-| `{{2}}` | Barbearia do Zé |
+| `{{1}}` | Marina |
+| `{{2}}` | Cantina Bella Nonna |
 
 > Só funciona para quem tem data de nascimento cadastrada. O menu do bot **não**
-> pergunta isso — seria mais um passo no meio do agendamento. Preencha pela rota
+> pergunta isso — seria mais um passo no meio da reserva. Preencha pela rota
 > administrativa:
 >
 > ```bash

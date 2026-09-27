@@ -4,32 +4,32 @@ Esta é a etapa **mais lenta e menos previsível**, porque parte dela depende da
 análise da Meta. Comece por ela cedo: enquanto os templates são aprovados, você
 monta o resto da infraestrutura.
 
-**A regra que organiza tudo:** um **aplicativo** na Meta atende **todas** as
-barbearias. O que muda de uma para outra é o **número** — o `phone_number_id` —
+**A regra que organiza tudo:** um **aplicativo** na Meta atende **todos** os
+restaurantes. O que muda de um para outro é o **número** — o `phone_number_id` —
 e ele fica no banco, não no `.env`.
 
-> Se você nunca subiu o bot nem para uma barbearia, o caminho do zero (criar
+> Se você nunca subiu o bot nem para um restaurante, o caminho do zero (criar
 > conta na Meta, número de teste grátis, primeiro "oi" respondido) está em
 > [`../../whatsapp/docs/setup.md`](../../whatsapp/docs/setup.md). Este documento
 > continua de lá.
 
 ---
 
-## 4.1 Decida antes: uma WABA ou uma por barbearia
+## 4.1 Decida antes: uma WABA ou uma por restaurante
 
 WABA é a *WhatsApp Business Account* — a conta que segura os números **e os
 templates**. É a decisão mais consequente desta etapa, porque mudar depois dá
 trabalho.
 
-**Para começar, use uma WABA para todas.** Templates aprovados uma vez só valem
+**Para começar, use uma WABA para todos.** Templates aprovados uma vez só valem
 para todos os números, e é uma economia enorme de tempo. Passe para uma WABA por
-barbearia quando você passar de ~20 números, quando um cliente exigir ser dono do
-número dele, ou quando uma barbearia com qualidade ruim começar a ameaçar as
-outras.
+restaurante quando você passar de ~20 números, quando um cliente exigir ser dono do
+número dele, ou quando um restaurante com qualidade ruim começar a ameaçar os
+outros.
 
 A comparação completa está em
-[`../deploy-whatsapp.md`](../deploy-whatsapp.md#2-decida-antes-uma-waba-ou-uma-por-barbearia).
-O código não muda: `wabaId` já é uma coluna por barbearia.
+[`../deploy-whatsapp.md`](../deploy-whatsapp.md#2-decida-antes-uma-waba-ou-uma-por-restaurante).
+O código não muda: `wabaId` já é uma coluna por restaurante.
 
 > ⚠️ **A assinatura do webhook é por WABA.** A URL é cadastrada uma vez no
 > aplicativo, mas **cada WABA nova precisa ser assinada por aquele app**
@@ -57,9 +57,9 @@ Ele é uma senha que **você inventa** e digita nos dois lados.
 
 ---
 
-## 4.3 O número de cada barbearia
+## 4.3 O número de cada restaurante
 
-Para **cada** barbearia:
+Para **cada** restaurante:
 
 > WhatsApp → **Configuração da API** → **Adicionar número de telefone**
 
@@ -67,19 +67,19 @@ Para **cada** barbearia:
 2. Anote a **"Identificação do número de telefone"** — é o `phone_number_id`, um
    número longo tipo `109876543210987`. **Não é o telefone**, é o ID;
 3. Anote a **"Identificação da conta do WhatsApp Business"** — o `waba_id`;
-4. Se esta barbearia tem **WABA própria**, assine essa WABA no seu aplicativo
+4. Se este restaurante tem **WABA própria**, assine essa WABA no seu aplicativo
    (o aviso da seção 4.1).
 
 Monte a tabela enquanto faz — você vai precisar dela na
-[etapa 7](07-cadastro-barbearias.md):
+[etapa 7](07-cadastro-restaurantes.md):
 
 | slug | telefone | `phone_number_id` | `waba_id` |
 |---|---|---|---|
-| `barbearia-do-ze` | +55 11 9… | `109876543210987` | `987654321098765` |
-| `studio-max` | +55 11 9… | `109876543210988` | `987654321098765` |
+| `cantina-bella-nonna` | +55 11 9… | `109876543210987` | `987654321098765` |
+| `sushi-kaze` | +55 11 9… | `109876543210988` | `987654321098765` |
 
 > ⚠️ **O erro mais comum de multi-tenant é trocar dois `phone_number_id`.** O
-> cliente de uma barbearia vê o menu e os preços da outra. Confira a tabela duas
+> cliente de um restaurante vê o menu e o cardápio do outro. Confira a tabela duas
 > vezes; a [etapa 8](08-verificacao-final.md) tem o teste que pega isso.
 
 ---
@@ -97,9 +97,9 @@ Permissões necessárias:
 > ele, o bot para de responder amanhã — e o sintoma é silêncio, não erro. Use o
 > token de **usuário do sistema**, que é permanente.
 
-Com WABA compartilhada, um token de sistema pode atender todas as barbearias. Com
-WABA por barbearia, é um token por WABA. De qualquer forma, o token é guardado
-**criptografado no banco**, por barbearia, pelo `tenant:add` — nunca no `.env` do
+Com WABA compartilhada, um token de sistema pode atender todos os restaurantes. Com
+WABA por restaurante, é um token por WABA. De qualquer forma, o token é guardado
+**criptografado no banco**, por restaurante, pelo `tenant:add` — nunca no `.env` do
 servidor.
 
 ---
@@ -107,7 +107,7 @@ servidor.
 ## 4.5 Os templates
 
 Fora da janela de 24 horas, a Meta **só aceita template aprovado**. Todo lembrete
-deste projeto é template. (A confirmação do agendamento não é: ela sai na hora,
+deste projeto é template. (A confirmação da reserva não é: ela sai na hora,
 como resposta a um toque do cliente, e por isso é texto livre.)
 
 Os JSONs prontos para colar estão em
@@ -122,9 +122,9 @@ Cadastre agora os dois que vêm ligados por padrão:
 | `lembrete_24h` | `TEMPLATE_LEMBRETE_24H` | UTILITY |
 | `lembrete_2h` | `TEMPLATE_LEMBRETE_2H` | UTILITY |
 
-- **Uma WABA para todas:** cadastre **uma vez**. Valem para todos os números.
-- **Uma WABA por barbearia:** cadastre em **cada** WABA, com **nomes idênticos** —
-  o `.env` tem um nome só para todas.
+- **Uma WABA para todos:** cadastre **uma vez**. Valem para todos os números.
+- **Uma WABA por restaurante:** cadastre em **cada** WABA, com **nomes idênticos** —
+  o `.env` tem um nome só para todos.
 
 > ⚠️ **A ordem das variáveis importa.** O código manda `{{1}}`, `{{2}}`… na ordem
 > descrita no `templates.md`. Trocar a ordem no WhatsApp Manager **não dá erro de
@@ -136,7 +136,7 @@ A aprovação leva de minutos a alguns dias. Enquanto espera, siga para a
 Depois de aprovados (precisa do servidor no ar):
 
 ```bash
-npm run templates:check -w @barbearia/whatsapp
+npm run templates:check -w @restaurante/whatsapp
 ```
 
 ### As mensagens de marketing ficam desligadas
@@ -165,7 +165,7 @@ Deixe anotado aqui o que ele vai pedir:
 
 ## ✅ Antes de seguir
 
-- [ ] Decidiu: uma WABA para todas (ou por barbearia, com o custo entendido)
+- [ ] Decidiu: uma WABA para todos (ou por restaurante, com o custo entendido)
 - [ ] `META_APP_ID` e `META_APP_SECRET` guardados
 - [ ] Cada número cadastrado e **verificado**, com `phone_number_id` e `waba_id` anotados numa tabela
 - [ ] Token **permanente** de usuário do sistema gerado, com as duas permissões

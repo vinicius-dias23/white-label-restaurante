@@ -1,0 +1,247 @@
+{
+  "brand": {
+    "name": "Boteco do Zé",
+    "tagline": "Chope gelado e petisco de verdade",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#101010",
+    "surface": "#1A1A18",
+    "text": "#F5F3EC",
+    "muted": "#AAA79D",
+    "brand": "#E0A100",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(21) 90000-0002",
+    "phone": "(21) 3000-0002",
+    "email": "contato@botecodoze.com.br",
+    "address": "Rua Voluntários da Pátria, 88 — Botafogo, Rio de Janeiro - RJ",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@botecodoze",
+      "facebook": "",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "A mesa da\nturma é aqui",
+    "subheadline": "Boteco em Botafogo, com roda de samba no sábado",
+    "ctaLabel": "Reservar mesa no WhatsApp"
+  },
+  "menu": {
+    "url": "",
+    "items": [
+      {
+        "slug": "bolinho-de-bacalhau",
+        "name": "Bolinho de Bacalhau",
+        "description": "Porção com 8 unidades, receita da casa",
+        "category": "Petiscos",
+        "price": "R$ 46",
+        "imageUrl": "/fotos/bolinho.jpg",
+        "highlight": true
+      },
+      {
+        "slug": "pastel-de-camarao",
+        "name": "Pastel de Camarão",
+        "description": "Porção com 6, camarão com catupiry",
+        "category": "Petiscos",
+        "price": "R$ 52",
+        "imageUrl": "/fotos/pastel.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "picanha-na-chapa",
+        "name": "Picanha na Chapa",
+        "description": "400 g com farofa, vinagrete e pão",
+        "category": "Pratos",
+        "price": "R$ 119 (serve 2)",
+        "imageUrl": "/fotos/picanha.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "feijoada-de-sabado",
+        "name": "Feijoada de Sábado",
+        "description": "Completa, só aos sábados no almoço",
+        "category": "Pratos",
+        "price": "R$ 69",
+        "imageUrl": "/fotos/feijoada.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "chope-da-casa",
+        "name": "Chope da Casa",
+        "description": "Pilsen, tulipa de 300 ml",
+        "category": "Bebidas",
+        "price": "R$ 14",
+        "imageUrl": "/fotos/chope.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "caipirinha",
+        "name": "Caipirinha",
+        "description": "Limão, cachaça artesanal de Paraty",
+        "category": "Bebidas",
+        "price": "R$ 26",
+        "imageUrl": "/fotos/caipirinha.jpg",
+        "highlight": false
+      }
+    ]
+  },
+  "areas": [
+    {
+      "slug": "salao",
+      "name": "Salão",
+      "description": "Mesas de madeira e a TV dos jogos",
+      "capacity": 50,
+      "imageUrl": "/fotos/salao.jpg",
+      "bookable": true
+    },
+    {
+      "slug": "calcada",
+      "name": "Calçada",
+      "description": "As mesas na rua, as primeiras a lotar",
+      "capacity": 30,
+      "imageUrl": "/fotos/calcada.jpg",
+      "bookable": true
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Chope na tulipa"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Bolinho de bacalhau"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Roda de samba"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Calçada cheia"
+    }
+  ],
+  "team": [
+    {
+      "slug": "ze",
+      "name": "Zé",
+      "role": "Dono e chapeiro",
+      "photoUrl": "/fotos/ze.jpg",
+      "instagram": "@botecodoze",
+      "phone": ""
+    },
+    {
+      "slug": "tati",
+      "name": "Tati",
+      "role": "Gerente de salão",
+      "photoUrl": "/fotos/tati.jpg",
+      "instagram": "",
+      "phone": "(21) 97777-0002"
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Felipe C.",
+      "rating": 5,
+      "text": "Reservei a mesa para 12 do aniversário e deu tudo certo.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Marcos V.",
+      "rating": 5,
+      "text": "O bolinho de bacalhau é covardia.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [],
+    "tue": [
+      [
+        "17:00",
+        "00:00"
+      ]
+    ],
+    "wed": [
+      [
+        "17:00",
+        "00:00"
+      ]
+    ],
+    "thu": [
+      [
+        "17:00",
+        "01:00"
+      ]
+    ],
+    "fri": [
+      [
+        "12:00",
+        "01:00"
+      ]
+    ],
+    "sat": [
+      [
+        "12:00",
+        "01:00"
+      ]
+    ],
+    "sun": [
+      [
+        "12:00",
+        "20:00"
+      ]
+    ]
+  },
+  "features": {
+    "menu": true,
+    "areas": true,
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 30,
+    "leadTimeMin": 30,
+    "horizonDays": 14,
+    "durationMin": 150,
+    "lastSeatingMin": 90,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 2,
+    "maxPartySize": 25,
+    "approvalAbovePartySize": 12
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, dinheiro, débito, crédito e vale-refeição",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "00:00",
+      "10:00"
+    ],
+    "reativacaoDias": 30,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    },
+    "owner": {
+      "phones": [
+        "(21) 90000-0002"
+      ],
+      "pauseMinutes": 60,
+      "afternoonStartHour": 11,
+      "eveningStartHour": 17
+    },
+    "textos": {}
+  }
+}

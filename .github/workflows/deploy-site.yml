@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       tenant:
-        description: 'Publicar só esta barbearia (vazio = todas)'
+        description: 'Publicar só este restaurante (vazio = todos)'
         required: false
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
     needs: listar
     runs-on: ubuntu-latest
     strategy:
-      # Uma barbearia com config quebrado não impede as outras de subirem.
+      # Um restaurante com config quebrado não impede os outros de subirem.
       fail-fast: false
       # Cinco de cada vez. Suba este número conforme a conta cresce.
       max-parallel: 5
@@ -57,13 +57,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build
-        run: npm run build -w @barbearia/site
+        run: npm run build -w @restaurante/site
         env:
           TENANT: ${{ matrix.tenant.slug }}
       - name: Publicar
         run: |
           npx wrangler pages deploy "site/dist/${{ matrix.tenant.slug }}" \
-            --project-name="barbearia-${{ matrix.tenant.slug }}" \
+            --project-name="restaurante-${{ matrix.tenant.slug }}" \
             --branch=master
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

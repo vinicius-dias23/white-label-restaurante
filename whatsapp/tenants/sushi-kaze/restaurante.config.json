@@ -1,0 +1,253 @@
+{
+  "brand": {
+    "name": "Sushi Kaze",
+    "tagline": "Cozinha japonesa contemporânea",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#0B0C0E",
+    "surface": "#15171B",
+    "text": "#F4F4F2",
+    "muted": "#A3A6AD",
+    "brand": "#C8102E",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(11) 90000-0001",
+    "phone": "(11) 3000-0001",
+    "email": "reservas@sushikaze.com.br",
+    "address": "Av. Paulista, 1500 — Bela Vista, São Paulo - SP",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@sushikaze",
+      "facebook": "",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "Omakase\nsem pressa",
+    "subheadline": "Peixe fresco todo dia, no balcão ou no salão",
+    "ctaLabel": "Reservar mesa no WhatsApp"
+  },
+  "menu": {
+    "url": "https://sushikaze.com.br/cardapio",
+    "items": [
+      {
+        "slug": "omakase-do-chef",
+        "name": "Omakase do Chef",
+        "description": "12 tempos escolhidos pelo itamae, só no balcão",
+        "category": "Omakase",
+        "price": "R$ 290",
+        "imageUrl": "/fotos/omakase.jpg",
+        "highlight": true
+      },
+      {
+        "slug": "combinado-kaze",
+        "name": "Combinado Kaze",
+        "description": "30 peças entre sashimi, niguiri e uramaki",
+        "category": "Combinados",
+        "price": "R$ 159 (serve 2)",
+        "imageUrl": "/fotos/combinado.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "tartare-de-atum",
+        "name": "Tartare de Atum",
+        "description": "Atum bluefin, ponzu e crocante de arroz",
+        "category": "Entradas",
+        "price": "R$ 64",
+        "imageUrl": "/fotos/tartare.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "lamen-tonkotsu",
+        "name": "Lámen Tonkotsu",
+        "description": "Caldo de porco de 18 horas, chashu e ovo marinado",
+        "category": "Quentes",
+        "price": "R$ 72",
+        "imageUrl": "/fotos/lamen.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "mochi-de-matcha",
+        "name": "Mochi de Matcha",
+        "description": "Sorvete de chá verde envolto em massa de arroz",
+        "category": "Sobremesas",
+        "price": "R$ 28",
+        "imageUrl": "/fotos/mochi.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "sake-da-casa",
+        "name": "Saquê da Casa",
+        "description": "Junmai gelado, garrafa de 300 ml",
+        "category": "Bebidas",
+        "price": "R$ 89",
+        "imageUrl": "/fotos/sake.jpg",
+        "highlight": false
+      }
+    ]
+  },
+  "areas": [
+    {
+      "slug": "balcao",
+      "name": "Balcão",
+      "description": "De frente para o itamae, ideal para o omakase",
+      "capacity": 10,
+      "imageUrl": "/fotos/balcao.jpg",
+      "bookable": true
+    },
+    {
+      "slug": "salao",
+      "name": "Salão",
+      "description": "Mesas para grupos, iluminação baixa",
+      "capacity": 36,
+      "imageUrl": "/fotos/salao.jpg",
+      "bookable": true
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Balcão do itamae"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Sashimi de salmão"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Salão à noite"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Lámen tonkotsu"
+    }
+  ],
+  "team": [
+    {
+      "slug": "kenji",
+      "name": "Kenji",
+      "role": "Itamae",
+      "photoUrl": "/fotos/kenji.jpg",
+      "instagram": "@kenji.itamae",
+      "phone": ""
+    },
+    {
+      "slug": "aline",
+      "name": "Aline",
+      "role": "Recepção",
+      "photoUrl": "/fotos/aline.jpg",
+      "instagram": "",
+      "phone": "(11) 97777-0001"
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Pedro H.",
+      "rating": 5,
+      "text": "O omakase no balcão vale cada centavo.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Rodrigo T.",
+      "rating": 5,
+      "text": "Reservei pelo WhatsApp e já tinha lugar no balcão.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [],
+    "tue": [
+      [
+        "19:00",
+        "23:30"
+      ]
+    ],
+    "wed": [
+      [
+        "19:00",
+        "23:30"
+      ]
+    ],
+    "thu": [
+      [
+        "19:00",
+        "23:30"
+      ]
+    ],
+    "fri": [
+      [
+        "19:00",
+        "00:00"
+      ]
+    ],
+    "sat": [
+      [
+        "12:30",
+        "15:30"
+      ],
+      [
+        "19:00",
+        "00:00"
+      ]
+    ],
+    "sun": [
+      [
+        "12:30",
+        "16:00"
+      ]
+    ]
+  },
+  "features": {
+    "menu": true,
+    "areas": true,
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 15,
+    "leadTimeMin": 120,
+    "horizonDays": 21,
+    "durationMin": 90,
+    "lastSeatingMin": 60,
+    "maxPerContact": 1,
+    "cancelDeadlineHours": 6,
+    "maxPartySize": 12,
+    "approvalAbovePartySize": 6
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, débito e crédito",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "23:30",
+      "10:00"
+    ],
+    "reativacaoDias": 60,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    },
+    "owner": {
+      "phones": [
+        "(11) 90000-0001"
+      ],
+      "pauseMinutes": 60,
+      "afternoonStartHour": 11,
+      "eveningStartHour": 18
+    },
+    "textos": {
+      "cliente.menu.saudacao": "Irasshaimase! Aqui é o {marca} 🍣"
+    }
+  }
+}

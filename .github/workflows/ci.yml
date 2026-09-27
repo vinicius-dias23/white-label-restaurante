@@ -33,15 +33,15 @@ jobs:
       - name: Build multi-tenant
         # Prova que o TENANT chega até o config certo. Sem isto, um erro no
         # vite.config.ts só apareceria no deploy, com o site já no ar.
-        run: npm run build -w @barbearia/site
+        run: npm run build -w @restaurante/site
         env:
-          TENANT: barbearia-do-ze
+          TENANT: cantina-bella-nonna
 
       - name: O build precisa falhar com um tenant inexistente
         # A proteção que impede publicar o site de um cliente com o conteúdo de
         # demonstração. Se ela parar de funcionar, é aqui que se descobre.
         run: |
-          if npm run build -w @barbearia/site; then
+          if npm run build -w @restaurante/site; then
             echo "✖ o build passou com TENANT=nao-existe — a checagem do vite.config.ts quebrou"
             exit 1
           fi

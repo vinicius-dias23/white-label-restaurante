@@ -1,0 +1,245 @@
+{
+  "brand": {
+    "name": "Bistrô Lume",
+    "tagline": "Cozinha autoral de estação",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#0D1110",
+    "surface": "#161C1A",
+    "text": "#F1F4F2",
+    "muted": "#A2ADA8",
+    "brand": "#2F6B4F",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(31) 90000-0003",
+    "phone": "(31) 3000-0003",
+    "email": "reservas@bistrolume.com.br",
+    "address": "Rua da Bahia, 720 — Centro, Belo Horizonte - MG",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@bistrolume",
+      "facebook": "",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "O cardápio\nmuda com a estação",
+    "subheadline": "Ingredientes de pequenos produtores de Minas",
+    "ctaLabel": "Reservar mesa no WhatsApp"
+  },
+  "menu": {
+    "url": "https://bistrolume.com.br/menu.pdf",
+    "items": [
+      {
+        "slug": "menu-degustacao",
+        "name": "Menu Degustação",
+        "description": "7 tempos, harmonização opcional",
+        "category": "Degustação",
+        "price": "R$ 240",
+        "imageUrl": "/fotos/degustacao.jpg",
+        "highlight": true
+      },
+      {
+        "slug": "tartar-de-beterraba",
+        "name": "Tartar de Beterraba",
+        "description": "Queijo canastra curado e castanha de baru",
+        "category": "Entradas",
+        "price": "R$ 42",
+        "imageUrl": "/fotos/beterraba.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "porco-na-brasa",
+        "name": "Porco na Brasa",
+        "description": "Barriga de porco, angu cremoso e couve",
+        "category": "Principais",
+        "price": "R$ 89",
+        "imageUrl": "/fotos/porco.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "peixe-do-dia",
+        "name": "Peixe do Dia",
+        "description": "Pescado de água doce, manteiga de ervas",
+        "category": "Principais",
+        "price": "R$ 94",
+        "imageUrl": "/fotos/peixe.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "doce-de-leite-queimado",
+        "name": "Doce de Leite Queimado",
+        "description": "Sorvete de queijo e farofa de biscoito",
+        "category": "Sobremesas",
+        "price": "R$ 36",
+        "imageUrl": "/fotos/doce.jpg",
+        "highlight": false
+      }
+    ]
+  },
+  "areas": [
+    {
+      "slug": "salao",
+      "name": "Salão",
+      "description": "Mesas intimistas, cozinha à vista",
+      "capacity": 28,
+      "imageUrl": "/fotos/salao.jpg",
+      "bookable": true
+    },
+    {
+      "slug": "jardim",
+      "name": "Jardim",
+      "description": "Ao ar livre, sob as luzes",
+      "capacity": 16,
+      "imageUrl": "/fotos/jardim.jpg",
+      "bookable": true
+    },
+    {
+      "slug": "sala-privativa",
+      "name": "Sala privativa",
+      "description": "Para eventos fechados — só com a equipe",
+      "capacity": 12,
+      "imageUrl": "/fotos/privativa.jpg",
+      "bookable": false
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Cozinha à vista"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Porco na brasa"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Jardim à noite"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Menu degustação"
+    }
+  ],
+  "team": [
+    {
+      "slug": "helena",
+      "name": "Helena",
+      "role": "Chef",
+      "photoUrl": "/fotos/helena.jpg",
+      "instagram": "@chef.helena",
+      "phone": ""
+    },
+    {
+      "slug": "igor",
+      "name": "Igor",
+      "role": "Maître",
+      "photoUrl": "/fotos/igor.jpg",
+      "instagram": "",
+      "phone": "(31) 97777-0003"
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Antônio R.",
+      "rating": 5,
+      "text": "A melhor degustação de BH, e o jardim é lindo.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Gustavo P.",
+      "rating": 5,
+      "text": "Atendimento atencioso do começo ao fim.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [],
+    "tue": [],
+    "wed": [
+      [
+        "19:00",
+        "23:00"
+      ]
+    ],
+    "thu": [
+      [
+        "19:00",
+        "23:00"
+      ]
+    ],
+    "fri": [
+      [
+        "19:00",
+        "23:30"
+      ]
+    ],
+    "sat": [
+      [
+        "12:00",
+        "15:30"
+      ],
+      [
+        "19:00",
+        "23:30"
+      ]
+    ],
+    "sun": [
+      [
+        "12:00",
+        "16:00"
+      ]
+    ]
+  },
+  "features": {
+    "menu": true,
+    "areas": true,
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 30,
+    "leadTimeMin": 180,
+    "horizonDays": 45,
+    "durationMin": 150,
+    "lastSeatingMin": 90,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 24,
+    "maxPartySize": 10,
+    "approvalAbovePartySize": 6
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, débito e crédito",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "22:30",
+      "09:00"
+    ],
+    "reativacaoDias": 60,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    },
+    "owner": {
+      "phones": [
+        "(31) 90000-0003"
+      ],
+      "pauseMinutes": 60,
+      "afternoonStartHour": 11,
+      "eveningStartHour": 18
+    },
+    "textos": {}
+  }
+}

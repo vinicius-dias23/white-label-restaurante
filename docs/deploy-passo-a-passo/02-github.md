@@ -19,7 +19,7 @@ ls .github/workflows/
 | Workflow | Quando roda | O que faz |
 |---|---|---|
 | **`ci.yml`** | todo PR e todo push em `master` | `typecheck`, `test`, `deploy:check`, build multi-tenant, e **prova que o build falha com um tenant inexistente** |
-| **`deploy-site.yml`** | push em `master` que toque `site/`, `shared/`, `whatsapp/tenants/` ou `deploy/tenants.json` — e sob demanda | Lê o manifesto, builda cada barbearia **ativa** e publica no Cloudflare Pages |
+| **`deploy-site.yml`** | push em `master` que toque `site/`, `shared/`, `whatsapp/tenants/` ou `deploy/tenants.json` — e sob demanda | Lê o manifesto, builda cada restaurante **ativo** e publica no Cloudflare Pages |
 
 Duas coisas que valem entender antes de confiar neles:
 
@@ -27,9 +27,9 @@ Duas coisas que valem entender antes de confiar neles:
   Render, direto do push, pelo `render.yaml` na raiz ([etapa 5](05-render.md)).
   Ela conecta no repositório pelo GitHub App dela, e o `buildFilter` do arquivo
   faz o papel dos `paths:` de um workflow — inclusive o de **não** publicar
-  quando entra uma barbearia nova, que é `tenant:add` no banco e não código.
-- **`deploy-site.yml` tem `fail-fast: false`.** Um config quebrado numa
-  barbearia não cancela a publicação das outras.
+  quando entra um restaurante novo, que é `tenant:add` no banco e não código.
+- **`deploy-site.yml` tem `fail-fast: false`.** Um config quebrado num
+  restaurante não cancela a publicação dos outros.
 
 ---
 
@@ -100,11 +100,11 @@ precisa de um commit:
 
 > Aba **Actions** → **Deploy site** → **Run workflow**
 
-O campo `tenant` publica **só aquela barbearia**; vazio = todas as ativas.
+O campo `tenant` publica **só aquele restaurante**; vazio = todos os ativos.
 
 **O servidor** publica pelo painel da Render:
 
-> serviço `barbearia-whatsapp` → **Manual Deploy** → *Deploy latest commit*
+> serviço `restaurante-whatsapp` → **Manual Deploy** → *Deploy latest commit*
 
 Guarde os dois — são os botões que você usa quando um deploy falhou por rede e
 você só quer tentar de novo.

@@ -1,7 +1,7 @@
 # Etapa 3 — Banco de dados
 
-**Um Postgres para todas as barbearias.** A separação não é por banco nem por
-schema: é a coluna `tenant_id` nas tabelas. Uma barbearia nova não cria banco
+**Um Postgres para todos os restaurantes.** A separação não é por banco nem por
+schema: é a coluna `tenant_id` nas tabelas. Um restaurante novo não cria banco
 nenhum — cria uma linha em `tenants`.
 
 Serve qualquer Postgres 14+ gerenciado: **Render Postgres**, **Neon**,
@@ -15,7 +15,7 @@ requisitos abaixo.
 | Requisito | Por quê |
 |---|---|
 | **Postgres 14 ou superior** | É o que as migrações assumem |
-| **Backup automático diário** | O banco guarda a agenda de todos os clientes. Perder é o pior cenário do projeto |
+| **Backup automático diário** | O banco guarda as reservas de todos os clientes. Perder é o pior cenário do projeto |
 | **SSL obrigatório** | O servidor se conecta pela internet pública |
 | **A mesma região do serviço na Render** (`virginia`) | Cada toque no bot faz várias consultas; o que soma não é o salto do celular até o servidor, é o servidor conversar com um banco longe |
 | **Pelo menos 20 conexões** no plano | O `DATABASE_POOL_MAX=10` mais folga para migração e CLI |
@@ -42,7 +42,7 @@ servidor usa:
 ```
 DATABASE_URL=postgres://usuario:senha@host:5432/banco
 DATABASE_SSL=true          # praticamente todo banco gerenciado exige
-DATABASE_POOL_MAX=10       # 10 aguenta bem 5 barbearias
+DATABASE_POOL_MAX=10       # 10 aguenta bem 5 restaurantes
 ```
 
 Guarde a `DATABASE_URL` no seu gerenciador de senhas **agora**. Ela vai para o
@@ -56,7 +56,8 @@ uma vez.
 
 ## 3.3 Rodar as migrações
 
-As migrações criam `tenants`, a agenda, os clientes e a `outbox` (a fila de
+A migração cria `tenants`, os ambientes (`areas`), a equipe (`staff`), as
+reservas, os bloqueios (`time_blocks`), os clientes e a `outbox` (a fila de
 mensagens programadas). O script é o `db:migrate`.
 
 **A primeira vez, rode da sua máquina** — é mais simples do que esperar o servidor
@@ -77,7 +78,7 @@ DATABASE_SSL=true
 E rode:
 
 ```bash
-npm run db:migrate -w @barbearia/whatsapp
+npm run db:migrate -w @restaurante/whatsapp
 ```
 
 > ⚠️ **`npm run db:reset` apaga tudo.** Ele existe para desenvolvimento. Nunca o
@@ -87,7 +88,7 @@ Depois da [etapa 5](05-render.md), o caminho passa a ser de dentro do servidor, 
 o preferido (a senha nunca sai de lá):
 
 ```bash
-render ssh barbearia-whatsapp -- 'npm run db:migrate -w @barbearia/whatsapp'
+render ssh restaurante-whatsapp -- 'npm run db:migrate -w @restaurante/whatsapp'
 ```
 
 ---
@@ -98,8 +99,8 @@ render ssh barbearia-whatsapp -- 'npm run db:migrate -w @barbearia/whatsapp'
 psql "$DATABASE_URL" -c '\dt'
 ```
 
-Você deve ver, entre outras, `tenants`, `outbox` e as tabelas de agendamento. A
-que importa agora é a `tenants` — é ela que a [etapa 7](07-cadastro-barbearias.md)
+Você deve ver, entre outras, `tenants`, `areas`, `reservations` e `outbox`. A
+que importa agora é a `tenants` — é ela que a [etapa 7](07-cadastro-restaurantes.md)
 vai preencher:
 
 ```bash
@@ -113,7 +114,7 @@ Sem `psql` instalado, dá para conferir pelo console web do provedor — todos t
 
 ## 3.5 A chave de criptografia
 
-Os tokens da Meta de cada barbearia ficam **criptografados** no banco
+Os tokens da Meta de cada restaurante ficam **criptografados** no banco
 (AES-256-GCM). A chave não fica no banco: fica no ambiente do servidor. Gere-a
 agora, junto do banco, porque as duas coisas precisam ser guardadas juntas:
 
@@ -122,7 +123,7 @@ openssl rand -base64 32     # APP_ENCRYPTION_KEY
 ```
 
 > ⚠️ **É o segredo mais delicado do projeto.** Perdeu ou trocou a chave, os
-> tokens salvos viram lixo e **todas as barbearias precisam ser cadastradas de
+> tokens salvos viram lixo e **todos os restaurantes precisam ser cadastrados de
 > novo**. Guarde-a **junto do backup do banco**, e nunca rode dois ambientes com
 > chaves diferentes contra o mesmo banco.
 

@@ -1,27 +1,27 @@
 [
   {
-    "slug": "barbearia-do-ze",
-    "dominio": "vinicius.ca",
+    "slug": "cantina-bella-nonna",
+    "dominio": "cantinabellanonna.com.br",
     "ativo": true
   },
   {
-    "slug": "studio-max",
-    "dominio": "studiomaxbarber.com.br",
+    "slug": "sushi-kaze",
+    "dominio": "sushikaze.com.br",
     "ativo": false
   },
   {
-    "slug": "barbearia-ana",
-    "dominio": "barbeariaana.com.br",
+    "slug": "boteco-do-ze",
+    "dominio": "botecodoze.com.br",
     "ativo": false
   },
   {
-    "slug": "corte-nobre",
-    "dominio": "cortenobre.com.br",
+    "slug": "bistro-lume",
+    "dominio": "bistrolume.com.br",
     "ativo": false
   },
   {
-    "slug": "navalha-fina",
-    "dominio": "navalhafina.com.br",
+    "slug": "churrascaria-fogo-alto",
+    "dominio": "fogoalto.com.br",
     "ativo": false
   }
 ]

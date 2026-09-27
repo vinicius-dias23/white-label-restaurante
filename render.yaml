@@ -3,13 +3,13 @@
 # A Render lê este arquivo em "New → Blueprint" e cria o serviço a partir dele.
 # O passo a passo está em docs/deploy-passo-a-passo/05-render.md.
 #
-# UM serviço para TODAS as barbearias. Barbearia nova não passa por aqui: ela
+# UM serviço para TODOS os restaurantes. Restaurante novo não passa por aqui: ele
 # entra por `tenant:add` + `tenant:sync`, e o servidor a descobre pelo
 # phone_number_id que a Meta manda no webhook.
 
 services:
   - type: web
-    name: barbearia-whatsapp
+    name: restaurante-whatsapp
     runtime: docker
     region: virginia
     # NUNCA `free`. O plano gratuito hiberna por inatividade, e o worker dos
@@ -18,7 +18,7 @@ services:
     plan: starter
 
     # A imagem é construída da RAIZ do repositório: o módulo depende de
-    # @barbearia/shared e lê os configs em whatsapp/tenants/.
+    # @restaurante/shared e lê os configs em whatsapp/tenants/.
     dockerfilePath: ./whatsapp/Dockerfile
     dockerContext: .
 
@@ -30,8 +30,8 @@ services:
     autoDeploy: true
 
     # O que dispara um deploy. Mexer em whatsapp/tenants/<slug>/ ou em
-    # deploy/tenants.json NÃO está aqui de propósito: trocar o preço de uma
-    # barbearia não pode reiniciar o bot de todas as outras.
+    # deploy/tenants.json NÃO está aqui de propósito: trocar o preço de um prato
+    # num restaurante não pode reiniciar o bot de todos os outros.
     buildFilter:
       paths:
         - whatsapp/src/**
@@ -84,4 +84,4 @@ services:
         sync: false
 
       # As variáveis TENANT_* ficam vazias em produção: são o bootstrap de uma
-      # instalação de barbearia única. Aqui toda barbearia entra por tenant:add.
+      # instalação de restaurante único. Aqui todo restaurante entra por tenant:add.
