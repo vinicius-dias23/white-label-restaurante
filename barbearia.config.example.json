@@ -1,0 +1,141 @@
+{
+  "brand": {
+    "name": "Barbearia do Zé",
+    "tagline": "Corte, barba e navalha",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+
+  "colors": {
+    "background": "#0A0A0B",
+    "surface": "#141417",
+    "text": "#F5F5F4",
+    "muted": "#A1A1AA",
+    "brand": "#16345B",
+    "brandAccent": ""
+  },
+
+  "contact": {
+    "whatsapp": "(11) 91234-5678",
+    "phone": "(11) 3456-7890",
+    "email": "contato@barbeariadoze.com.br",
+    "address": "Rua das Palmeiras, 250 — Vila Madalena, São Paulo - SP",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@barbeariadoze",
+      "facebook": "https://facebook.com/barbeariadoze",
+      "tiktok": ""
+    }
+  },
+
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "Seu estilo,\nno detalhe",
+    "subheadline": "Barbearia clássica com acabamento na navalha",
+    "ctaLabel": "Agendar no WhatsApp"
+  },
+
+  "services": [
+    {
+      "name": "Corte Degradê",
+      "description": "Máquina e tesoura, acabamento na navalha",
+      "price": "R$ 45",
+      "duration": "40 min",
+      "durationMin": 40,
+      "imageUrl": "/fotos/degrade.jpg",
+      "highlight": false
+    },
+    {
+      "name": "Corte + Barba",
+      "description": "O combo completo, com toalha quente",
+      "price": "R$ 75",
+      "duration": "1h 10",
+      "durationMin": 70,
+      "imageUrl": "/fotos/combo.jpg",
+      "highlight": true
+    },
+    {
+      "name": "Barba Terapia",
+      "description": "Toalha quente, óleo e navalha",
+      "price": "R$ 40",
+      "duration": "30 min",
+      "durationMin": 30,
+      "imageUrl": "/fotos/barba.jpg",
+      "highlight": false
+    }
+  ],
+
+  "gallery": [
+    { "url": "/fotos/galeria-1.jpg", "alt": "Degradê finalizado" },
+    { "url": "/fotos/galeria-2.jpg", "alt": "Acabamento na navalha" },
+    { "url": "/fotos/galeria-3.jpg", "alt": "Barba aparada" },
+    { "url": "/fotos/galeria-4.jpg", "alt": "Ambiente da barbearia" }
+  ],
+
+  "team": [
+    { "name": "Rafael", "role": "Barbeiro-chefe", "photoUrl": "/fotos/rafael.jpg", "instagram": "@rafa.barber", "phone": "(11) 98888-7766", "bookable": true },
+    { "name": "Diego", "role": "Especialista em barba", "photoUrl": "/fotos/diego.jpg", "instagram": "", "phone": "", "bookable": true }
+  ],
+
+  "testimonials": [
+    { "name": "Lucas M.", "rating": 5, "text": "Melhor degradê que já fizeram no meu cabelo.", "photoUrl": "" },
+    { "name": "André S.", "rating": 5, "text": "Ambiente top e barba feita com capricho.", "photoUrl": "" }
+  ],
+
+  "hours": {
+    "mon": [["09:00", "19:00"]],
+    "tue": [["09:00", "19:00"]],
+    "wed": [["09:00", "19:00"]],
+    "thu": [["09:00", "20:00"]],
+    "fri": [["09:00", "20:00"]],
+    "sat": [["08:00", "13:00"], ["14:00", "18:00"]],
+    "sun": []
+  },
+
+  "features": {
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+
+  "booking": {
+    "slotStepMin": 15,
+    "leadTimeMin": 60,
+    "horizonDays": 21,
+    "bufferMin": 0,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 3,
+    "defaultDurationMin": 40
+  },
+
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, dinheiro, débito e crédito (em até 2x)",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": ["21:00", "08:00"],
+    "reativacaoDias": 40,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    },
+
+    "owner": {
+      "phones": ["(11) 91234-5678"],
+      "pauseMinutes": 60,
+      "afternoonStartHour": 12,
+      "eveningStartHour": 18
+    },
+
+    "textos": {
+      "cliente.menu.saudacao": "Fala! Aqui é a {marca} 💈",
+      "cliente.cancelado.corpo": "Cancelado. O horário já voltou para a agenda.",
+      "rotulos.botao.agendar": "Marcar"
+    }
+  }
+}

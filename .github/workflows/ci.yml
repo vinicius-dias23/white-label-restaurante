@@ -1,0 +1,50 @@
+name: CI
+
+# Roda em todo PR e em todo push para master. É o portão antes dos deploys:
+# se isto está vermelho, não adianta olhar o resto.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Testes
+        # Os testes de integração com banco se pulam sozinhos sem
+        # DATABASE_URL_TEST; os de lógica pura rodam sempre.
+        run: npm test
+
+      - name: Manifesto de deploy
+        run: npm run deploy:check
+
+      - name: Build multi-tenant
+        # Prova que o TENANT chega até o config certo. Sem isto, um erro no
+        # vite.config.ts só apareceria no deploy, com o site já no ar.
+        run: npm run build -w @barbearia/site
+        env:
+          TENANT: barbearia-do-ze
+
+      - name: O build precisa falhar com um tenant inexistente
+        # A proteção que impede publicar o site de um cliente com o conteúdo de
+        # demonstração. Se ela parar de funcionar, é aqui que se descobre.
+        run: |
+          if npm run build -w @barbearia/site; then
+            echo "✖ o build passou com TENANT=nao-existe — a checagem do vite.config.ts quebrou"
+            exit 1
+          fi
+          echo "✔ falhou como deveria"
+        env:
+          TENANT: nao-existe

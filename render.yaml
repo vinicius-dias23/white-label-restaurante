@@ -1,0 +1,87 @@
+# Infraestrutura do servidor do WhatsApp, versionada no git.
+#
+# A Render lê este arquivo em "New → Blueprint" e cria o serviço a partir dele.
+# O passo a passo está em docs/deploy-passo-a-passo/05-render.md.
+#
+# UM serviço para TODAS as barbearias. Barbearia nova não passa por aqui: ela
+# entra por `tenant:add` + `tenant:sync`, e o servidor a descobre pelo
+# phone_number_id que a Meta manda no webhook.
+
+services:
+  - type: web
+    name: barbearia-whatsapp
+    runtime: docker
+    region: virginia
+    # NUNCA `free`. O plano gratuito hiberna por inatividade, e o worker dos
+    # lembretes morre junto: o bot continua conversando e nenhum lembrete sai
+    # às 2h da manhã, sem erro nenhum aparecer.
+    plan: starter
+
+    # A imagem é construída da RAIZ do repositório: o módulo depende de
+    # @barbearia/shared e lê os configs em whatsapp/tenants/.
+    dockerfilePath: ./whatsapp/Dockerfile
+    dockerContext: .
+
+    # A Render só promove o deploy novo depois que isto responder 200. O
+    # /health consulta o banco, então um deploy com DATABASE_URL errada não
+    # substitui o servidor que está funcionando.
+    healthCheckPath: /health
+
+    autoDeploy: true
+
+    # O que dispara um deploy. Mexer em whatsapp/tenants/<slug>/ ou em
+    # deploy/tenants.json NÃO está aqui de propósito: trocar o preço de uma
+    # barbearia não pode reiniciar o bot de todas as outras.
+    buildFilter:
+      paths:
+        - whatsapp/src/**
+        - whatsapp/package.json
+        - whatsapp/Dockerfile
+        - shared/**
+        - package.json
+        - package-lock.json
+        - .dockerignore
+        - render.yaml
+
+    envVars:
+      # Públicas — versionadas aqui.
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3333
+      - key: LOG_LEVEL
+        value: info
+      - key: DEFAULT_TIMEZONE
+        value: America/Sao_Paulo
+      - key: DEFAULT_LOCALE
+        value: pt_BR
+      - key: DEFAULT_COUNTRY_CODE
+        value: 55
+      - key: DATABASE_SSL
+        value: true
+      - key: DATABASE_POOL_MAX
+        value: 10
+      - key: WORKER_ENABLED
+        value: true
+      - key: WORKER_IN_PROCESS
+        value: true
+
+      # Segredos — `sync: false` significa "eu preencho no painel da Render".
+      # Nenhum valor destes entra no git.
+      - key: DATABASE_URL
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_VERIFY_TOKEN
+        sync: false
+      - key: APP_ENCRYPTION_KEY
+        sync: false
+      - key: ADMIN_API_TOKEN
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+
+      # As variáveis TENANT_* ficam vazias em produção: são o bootstrap de uma
+      # instalação de barbearia única. Aqui toda barbearia entra por tenant:add.

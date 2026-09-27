@@ -1,0 +1,27 @@
+{
+  "name": "@barbearia/shared",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Base comum dos dois módulos: schema do barbearia.config.json e utilitários de cor, horário e WhatsApp.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config/index.ts",
+    "./config/types": "./src/config/types.ts",
+    "./config/defaults": "./src/config/defaults.ts",
+    "./config/normalize": "./src/config/normalize.ts",
+    "./config/textos": "./src/config/textos.ts",
+    "./lib/color": "./src/lib/color.ts",
+    "./lib/hours": "./src/lib/hours.ts",
+    "./lib/texto": "./src/lib/texto.ts",
+    "./lib/whatsapp": "./src/lib/whatsapp.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

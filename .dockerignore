@@ -1,0 +1,32 @@
+# O que NÃO entra na imagem.
+#
+# O Dockerfile faz `COPY whatsapp/ whatsapp/`, que sem este arquivo levaria o
+# whatsapp/.env — com a APP_ENCRYPTION_KEY e os tokens da Meta — para dentro de
+# uma imagem que vai para um registry. Segredo em produção vem da plataforma
+# (as variáveis de ambiente da Render), nunca da imagem.
+
+# Segredos
+**/.env
+**/.env.*
+!**/.env.example
+
+# Instalado dentro da imagem pelo `npm ci`; copiar o do host quebraria os
+# binários nativos e ainda deixaria as devDependencies para trás.
+node_modules
+**/node_modules
+
+# Não faz parte do servidor. O package.json fica porque o `npm ci` precisa do
+# manifesto de TODOS os workspaces declarados na raiz para resolver o lockfile.
+site
+!site/package.json
+.git
+.github
+.gitignore
+docs
+deploy
+render.yaml
+**/dist
+**/*.log
+.DS_Store
+.vscode
+.idea

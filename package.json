@@ -1,0 +1,25 @@
+{
+  "name": "white-label-barbearia",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Landing page white-label de barbearia + automação de atendimento no WhatsApp, em dois módulos independentes.",
+  "workspaces": [
+    "shared",
+    "site",
+    "whatsapp"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @barbearia/site",
+    "build": "npm run build -w @barbearia/site",
+    "preview": "npm run preview -w @barbearia/site",
+
+    "dev:whatsapp": "npm run dev -w @barbearia/whatsapp",
+    "start:whatsapp": "npm run start -w @barbearia/whatsapp",
+
+    "deploy:check": "node deploy/verificar-tenants.mjs",
+
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

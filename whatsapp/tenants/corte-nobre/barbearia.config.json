@@ -1,0 +1,188 @@
+{
+  "brand": {
+    "name": "Corte Nobre",
+    "tagline": "Tradição em navalha desde 1998",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#0A0A0B",
+    "surface": "#141417",
+    "text": "#F5F5F4",
+    "muted": "#A1A1AA",
+    "brand": "#1F5C3A",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(31) 90000-0003",
+    "phone": "(31) 3000-0003",
+    "email": "contato@cortenobre.com.br",
+    "address": "Rua da Bahia, 720 — Centro, Belo Horizonte - MG",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@cortenobrebh",
+      "facebook": "",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "Navalha e\ntradição",
+    "subheadline": "No centro de BH desde 1998",
+    "ctaLabel": "Agendar no WhatsApp"
+  },
+  "services": [
+    {
+      "name": "Corte Degradê",
+      "description": "Máquina e tesoura, acabamento na navalha",
+      "price": "R$ 45",
+      "duration": "40 min",
+      "durationMin": 40,
+      "imageUrl": "/fotos/degrade.jpg",
+      "highlight": false
+    },
+    {
+      "name": "Corte + Barba",
+      "description": "O combo completo, com toalha quente",
+      "price": "R$ 75",
+      "duration": "1h 10",
+      "durationMin": 70,
+      "imageUrl": "/fotos/combo.jpg",
+      "highlight": true
+    },
+    {
+      "name": "Barba Terapia",
+      "description": "Toalha quente, óleo e navalha",
+      "price": "R$ 40",
+      "duration": "30 min",
+      "durationMin": 30,
+      "imageUrl": "/fotos/barba.jpg",
+      "highlight": false
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Degradê finalizado"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Acabamento na navalha"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Barba aparada"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Ambiente da barbearia"
+    }
+  ],
+  "team": [
+    {
+      "name": "Sérgio",
+      "role": "Barbeiro-chefe",
+      "photoUrl": "/fotos/sergio.jpg",
+      "instagram": "",
+      "bookable": true
+    },
+    {
+      "name": "Igor",
+      "role": "Barbeiro",
+      "photoUrl": "/fotos/igor.jpg",
+      "instagram": "",
+      "bookable": true
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Antônio R.",
+      "rating": 5,
+      "text": "Vinte anos de casa. Nunca precisei procurar outra.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Gustavo P.",
+      "rating": 5,
+      "text": "Barba na navalha como se fazia antigamente.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [
+      [
+        "09:00",
+        "19:00"
+      ]
+    ],
+    "tue": [
+      [
+        "09:00",
+        "19:00"
+      ]
+    ],
+    "wed": [
+      [
+        "09:00",
+        "19:00"
+      ]
+    ],
+    "thu": [
+      [
+        "09:00",
+        "20:00"
+      ]
+    ],
+    "fri": [
+      [
+        "09:00",
+        "20:00"
+      ]
+    ],
+    "sat": [
+      [
+        "08:00",
+        "13:00"
+      ],
+      [
+        "14:00",
+        "18:00"
+      ]
+    ],
+    "sun": []
+  },
+  "features": {
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 15,
+    "leadTimeMin": 60,
+    "horizonDays": 21,
+    "bufferMin": 0,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 3,
+    "defaultDurationMin": 40
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, dinheiro, débito e crédito (em até 2x)",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "21:00",
+      "08:00"
+    ],
+    "reativacaoDias": 40,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    }
+  }
+}

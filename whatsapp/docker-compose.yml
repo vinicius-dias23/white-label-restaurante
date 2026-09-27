@@ -1,0 +1,27 @@
+# Postgres para desenvolvimento. A URL bate com o DATABASE_URL do .env.example.
+#
+#   docker compose up -d     # sobe
+#   npm run db:migrate       # cria as tabelas
+#   docker compose down -v   # apaga tudo e recomeça do zero
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: barbearia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: barbearia
+      POSTGRES_PASSWORD: barbearia
+      POSTGRES_DB: barbearia
+    ports:
+      - '5432:5432'
+    volumes:
+      - barbearia-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U barbearia']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  barbearia-db:

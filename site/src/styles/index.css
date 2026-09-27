@@ -1,0 +1,232 @@
+@import 'tailwindcss';
+
+/* Só os subsets latinos: o site é pt-BR e cada subset extra é peso morto.
+   Nas variáveis, o `unicode-range` do próprio Fontsource já evita o
+   download dos alfabetos que a página nunca usa. */
+@import '@fontsource/bebas-neue/latin-400.css';
+@import '@fontsource/bebas-neue/latin-ext-400.css';
+@import '@fontsource-variable/oswald/wght.css';
+@import '@fontsource-variable/inter/wght.css';
+
+/*
+ * Valores iniciais do tema: a paleta padrão (preto + branco + azul escuro).
+ * `applyTheme()` sobrescreve estas variáveis com as cores do
+ * `barbearia.config.json` antes do primeiro render.
+ */
+:root {
+  --bb-bg: #0a0a0b;
+  --bb-surface: #141417;
+  --bb-surface-2: #1e1e22;
+  --bb-text: #f5f5f4;
+  --bb-muted: #a1a1aa;
+  --bb-brand: #16345b;
+  --bb-brand-solid: #16345b;
+  --bb-brand-accent: #5b86bd;
+  --bb-brand-soft: rgb(91 134 189 / 0.14);
+  --bb-brand-glow: rgb(91 134 189 / 0.35);
+  --bb-on-brand: #f5f5f4;
+  --bb-border: rgb(245 245 244 / 0.1);
+  --bb-border-strong: rgb(245 245 244 / 0.2);
+  --bb-scrim: rgb(10 10 11 / 0.72);
+  --bb-overlay-top: rgb(10 10 11 / 0.25);
+  --bb-overlay-bottom: #0a0a0b;
+  --bb-hover: #202024;
+
+  /* Altura do cabeçalho fixo — usada no offset das âncoras. */
+  --bb-header: 4rem;
+}
+
+/* Ponte entre as variáveis do tema e as utilities do Tailwind:
+   `bg-bg`, `text-brand`, `border-line`, `font-display`... */
+@theme inline {
+  --color-bg: var(--bb-bg);
+  --color-surface: var(--bb-surface);
+  --color-surface-2: var(--bb-surface-2);
+  --color-ink: var(--bb-text);
+  --color-muted: var(--bb-muted);
+  --color-brand: var(--bb-brand-solid);
+  --color-accent: var(--bb-brand-accent);
+  --color-soft: var(--bb-brand-soft);
+  --color-on-brand: var(--bb-on-brand);
+  --color-line: var(--bb-border);
+  --color-line-strong: var(--bb-border-strong);
+  --color-scrim: var(--bb-scrim);
+
+  --font-display: 'Bebas Neue', 'Oswald Variable', Impact, sans-serif;
+  --font-label: 'Oswald Variable', 'Oswald', sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Âncoras param abaixo do cabeçalho fixo. */
+    scroll-padding-top: var(--bb-header);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bb-bg);
+    color: var(--bb-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  ::selection {
+    background: var(--bb-brand-accent);
+    color: var(--bb-bg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--bb-brand-accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Rótulo pequeno em caixa alta, o "kicker" de cada seção. */
+  .kicker {
+    font-family: var(--font-label);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--bb-brand-accent);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0 1.5rem;
+    border-radius: 9999px;
+    font-family: var(--font-label);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-brand {
+    background: var(--bb-brand-solid);
+    color: var(--bb-on-brand);
+    box-shadow: 0 10px 30px -12px var(--bb-brand-glow);
+  }
+
+  @media (hover: hover) {
+    .btn-brand:hover {
+      background: var(--bb-brand-accent);
+      color: var(--bb-bg);
+      box-shadow: 0 14px 34px -10px var(--bb-brand-glow);
+    }
+  }
+
+  .btn-ghost {
+    border: 1px solid var(--bb-border-strong);
+    color: var(--bb-text);
+    background: transparent;
+  }
+
+  @media (hover: hover) {
+    .btn-ghost:hover {
+      border-color: var(--bb-brand-accent);
+      background: var(--bb-brand-soft);
+    }
+  }
+
+  .card {
+    background: var(--bb-surface);
+    border: 1px solid var(--bb-border);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+
+  /* Carrossel por toque: rola na horizontal e trava em cada item. */
+  .snap-row {
+    display: flex;
+    gap: 0.875rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-inline: var(--bb-gutter, 1.25rem);
+    scroll-padding-inline: var(--bb-gutter, 1.25rem);
+  }
+
+  .snap-row::-webkit-scrollbar { display: none; }
+
+  .snap-row > * {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+}
+
+@layer utilities {
+  /* Entrada suave dos blocos ao entrar na viewport (ver useReveal). */
+  .reveal {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .reveal-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; }
+  }
+
+  /* Respeita a barra de gestos do iPhone. */
+  .pb-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .bottom-safe { bottom: max(1rem, env(safe-area-inset-bottom)); }
+
+  .text-balance { text-wrap: balance; }
+
+  /* Textura sutil de vinheta usada atrás das seções escuras. */
+  .vignette {
+    background-image: radial-gradient(120% 80% at 50% 0%, var(--bb-brand-soft) 0%, transparent 60%);
+  }
+}
+
+@keyframes bb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bb-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(0.375rem); }
+}
+
+@keyframes bb-pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  70% { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}

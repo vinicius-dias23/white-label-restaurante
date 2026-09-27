@@ -1,0 +1,70 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'site/**'
+      - 'shared/**'
+      - 'whatsapp/tenants/**'
+      - 'deploy/tenants.json'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+    inputs:
+      tenant:
+        description: 'Publicar só esta barbearia (vazio = todas)'
+        required: false
+
+jobs:
+  # Lê o deploy/tenants.json e monta a lista do que vai ser publicado.
+  listar:
+    runs-on: ubuntu-latest
+    outputs:
+      tenants: ${{ steps.ler.outputs.tenants }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Conferir o manifesto
+        run: node deploy/verificar-tenants.mjs
+      - id: ler
+        run: |
+          FILTRO='${{ github.event.inputs.tenant }}'
+          LISTA=$(node -e '
+            const t = require("./deploy/tenants.json").filter(x => x.ativo)
+            const f = process.argv[1]
+            console.log(JSON.stringify(f ? t.filter(x => x.slug === f) : t))
+          ' "$FILTRO")
+          echo "tenants=$LISTA" >> "$GITHUB_OUTPUT"
+          echo "Publicando: $LISTA"
+
+  publicar:
+    needs: listar
+    runs-on: ubuntu-latest
+    strategy:
+      # Uma barbearia com config quebrado não impede as outras de subirem.
+      fail-fast: false
+      # Cinco de cada vez. Suba este número conforme a conta cresce.
+      max-parallel: 5
+      matrix:
+        tenant: ${{ fromJson(needs.listar.outputs.tenants) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build -w @barbearia/site
+        env:
+          TENANT: ${{ matrix.tenant.slug }}
+      - name: Publicar
+        run: |
+          npx wrangler pages deploy "site/dist/${{ matrix.tenant.slug }}" \
+            --project-name="barbearia-${{ matrix.tenant.slug }}" \
+            --branch=master
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

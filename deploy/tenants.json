@@ -1,0 +1,27 @@
+[
+  {
+    "slug": "barbearia-do-ze",
+    "dominio": "vinicius.ca",
+    "ativo": true
+  },
+  {
+    "slug": "studio-max",
+    "dominio": "studiomaxbarber.com.br",
+    "ativo": false
+  },
+  {
+    "slug": "barbearia-ana",
+    "dominio": "barbeariaana.com.br",
+    "ativo": false
+  },
+  {
+    "slug": "corte-nobre",
+    "dominio": "cortenobre.com.br",
+    "ativo": false
+  },
+  {
+    "slug": "navalha-fina",
+    "dominio": "navalhafina.com.br",
+    "ativo": false
+  }
+]

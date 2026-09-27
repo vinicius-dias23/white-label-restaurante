@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Estúdio dos textos — barbearia</title>
+<style>
+  :root {
+    --bg: #10151b;
+    --surface: #171e26;
+    --surface2: #1e2732;
+    --line: #2a3542;
+    --text: #e8edf2;
+    --muted: #93a1b0;
+    --brand: #d4a24c;
+    --ok: #4ec38a;
+    --warn: #e2b341;
+    --err: #e2685f;
+    --zap: #075e54;
+    --bolha: #202c33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  button { font: inherit; cursor: pointer; }
+  textarea, input, select { font: inherit; color: inherit; }
+
+  header {
+    display: flex; align-items: center; gap: 16px; padding: 12px 20px;
+    background: var(--surface); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  header h1 span { color: var(--brand); }
+  select, .campo, textarea {
+    background: var(--surface2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 10px; color: var(--text);
+  }
+  #busca { width: 240px; }
+  .cresce { flex: 1; }
+
+  .modos { display: flex; gap: 6px; padding: 12px 20px 0; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  .modo {
+    background: transparent; border: none; border-radius: 6px; padding: 7px 14px;
+    color: var(--muted); font-weight: 500;
+  }
+  .modo.ativa { background: var(--surface2); color: var(--text); }
+  .modo.ativa::after {
+    content: ''; display: block; height: 2px; background: var(--brand);
+    margin: 6px -14px -7px; border-radius: 2px;
+  }
+  .abas { display: flex; gap: 6px; padding: 12px 20px 0; flex-wrap: wrap; }
+  .aba {
+    background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 14px; color: var(--muted);
+  }
+  .aba.ativa { background: var(--brand); border-color: var(--brand); color: #1a1206; font-weight: 600; }
+  .aba .conta { opacity: .7; margin-left: 6px; font-size: 12px; }
+
+  main { display: grid; grid-template-columns: 1fr 380px; gap: 20px; padding: 16px 20px 96px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } #preview { position: static; } }
+
+  .cartao {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .cartao.editando { border-color: var(--brand); }
+  .cartao h3 { margin: 0 0 2px; font-size: 14px; font-weight: 600; }
+  .cartao .chave { font-size: 11px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .cartao .ajuda { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  .linha1 { display: flex; align-items: flex-start; gap: 10px; }
+  .selo {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    background: rgba(212,162,76,.15); color: var(--brand); border: 1px solid rgba(212,162,76,.35);
+  }
+  textarea, input.campo { width: 100%; margin-top: 10px; resize: vertical; }
+  textarea { min-height: 42px; line-height: 1.55; }
+  textarea:focus, input.campo:focus { outline: 2px solid var(--brand); outline-offset: -1px; }
+
+  .rodapeCartao { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .var {
+    background: var(--surface2); border: 1px solid var(--line); border-radius: 5px;
+    padding: 2px 7px; font-size: 11.5px; color: var(--brand);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .var:hover { border-color: var(--brand); }
+  .contador { margin-left: auto; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .contador.estourou { color: var(--err); font-weight: 600; }
+  .link { background: none; border: none; color: var(--muted); text-decoration: underline; padding: 0; font-size: 12px; }
+  .link:hover { color: var(--text); }
+
+  #preview { position: sticky; top: 78px; }
+  #preview h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 10px; }
+  .zap { background: #0b141a; border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-height: 120px; }
+  .bolha {
+    background: var(--bolha); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap;
+    word-break: break-word; font-size: 13.5px; max-width: 320px;
+  }
+  .btnZap {
+    display: block; width: 100%; margin-top: 4px; padding: 9px; text-align: center;
+    background: var(--bolha); border-top: 1px solid #2f3d45; color: #53bdeb; font-size: 13.5px;
+    border-radius: 0 0 8px 8px;
+  }
+  .secaoZap { color: var(--muted); font-size: 11px; text-transform: uppercase; margin: 12px 0 4px; letter-spacing: .6px; }
+  .rowZap { border-top: 1px solid #2f3d45; padding: 8px 2px; font-size: 13.5px; }
+  .rowZap small { display: block; color: var(--muted); font-size: 12px; }
+  .cortado { color: var(--err); }
+
+  .avisoTemplate {
+    background: rgba(226,104,95,.1); border: 1px solid rgba(226,104,95,.4);
+    border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px;
+  }
+  .avisoTemplate strong { color: var(--err); }
+
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line); z-index: 10;
+  }
+  .btn {
+    background: var(--surface2); border: 1px solid var(--line); border-radius: 7px;
+    padding: 9px 18px; color: var(--text); font-weight: 500;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primario { background: var(--brand); border-color: var(--brand); color: #1a1206; font-weight: 600; }
+  #situacao { color: var(--muted); font-size: 13px; }
+  #situacao.ok { color: var(--ok); }
+  #situacao.erro { color: var(--err); }
+
+  dialog {
+    background: var(--surface); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px; width: min(760px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0 0 12px; font-size: 16px; }
+  pre.diff {
+    background: #0b141a; border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+    max-height: 340px; overflow: auto; font-size: 12px; line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .diff .mais { color: var(--ok); }
+  .diff .menos { color: var(--err); }
+  .diff .cab { color: var(--muted); }
+  .acoes { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  .vazio { color: var(--muted); padding: 30px; text-align: center; }
+
+  /* --- conteúdo (serviços, equipe, horários, regras) --- */
+  .grade { display: grid; gap: 10px; }
+  .grade.duas { grid-template-columns: 1fr 1fr; }
+  .grade.tres { grid-template-columns: 2fr 1fr 1fr; }
+  @media (max-width: 720px) { .grade.duas, .grade.tres { grid-template-columns: 1fr; } }
+  .campoRot { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .campoRot small { color: var(--brand); opacity: .8; }
+  .item { position: relative; }
+  .item .remover {
+    position: absolute; top: 12px; right: 12px; background: transparent;
+    border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 4px 10px; font-size: 12px;
+  }
+  .item .remover:hover { border-color: var(--err); color: var(--err); }
+  .slugTag {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+    color: var(--muted); background: var(--surface2); border: 1px solid var(--line);
+    border-radius: 4px; padding: 1px 6px;
+  }
+  .novoItem { width: 100%; padding: 12px; border-style: dashed; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .switch input { width: 16px; height: 16px; accent-color: var(--brand); }
+  .faixa { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .faixa input { width: 82px; text-align: center; }
+  .faixa button { background: none; border: none; color: var(--muted); font-size: 16px; padding: 0 4px; }
+  .faixa button:hover { color: var(--err); }
+  .dia { display: grid; grid-template-columns: 90px 1fr auto; align-items: start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .dia:last-child { border-bottom: none; }
+  .dia .nome { padding-top: 8px; font-weight: 500; }
+  .fechado { color: var(--muted); padding-top: 8px; font-size: 13px; }
+  .avisoUso {
+    background: rgba(226,179,65,.1); border: 1px solid rgba(226,179,65,.4);
+    border-radius: 6px; padding: 8px 10px; font-size: 12.5px; margin-top: 10px; color: var(--warn);
+  }
+  .secTitulo { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin: 18px 0 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Estúdio dos textos <span>💈</span></h1>
+  <select id="tenant" title="Barbearia"></select>
+  <input id="busca" class="campo" type="search" placeholder="Buscar texto…" />
+  <div class="cresce"></div>
+  <span id="branch" style="color:var(--muted);font-size:12.5px"></span>
+</header>
+
+<nav class="modos" id="modos"></nav>
+<nav class="abas" id="abas"></nav>
+
+<main>
+  <div id="lista"><p class="vazio">Carregando…</p></div>
+  <aside id="preview">
+    <h2>Como fica no WhatsApp</h2>
+    <div class="zap" id="zap"><p style="color:var(--muted);margin:0">Clique num texto para ver a prévia.</p></div>
+  </aside>
+</main>
+
+<footer>
+  <button class="btn primario" id="salvar" disabled>Salvar</button>
+  <button class="btn" id="publicar">Publicar…</button>
+  <button class="btn" id="reverter" disabled>Descartar edições</button>
+  <span id="situacao"></span>
+</footer>
+
+<dialog id="modalPublicar">
+  <h2>Publicar na branch <code id="modalBranch"></code></h2>
+  <p style="color:var(--muted);font-size:13px;margin-top:0">
+    Isto faz <code>add</code>, <code>commit</code> e <code>push</code> dos
+    <code>barbearia.config.json</code> das barbearias. Mais nada entra no commit.
+  </p>
+  <pre class="diff" id="modalDiff"></pre>
+  <input id="modalMensagem" class="campo" style="width:100%;margin-top:12px"
+         placeholder="Mensagem do commit — ex.: Ajusta o tom das mensagens do cliente" />
+  <div class="acoes">
+    <button class="btn" id="modalCancelar">Cancelar</button>
+    <button class="btn primario" id="modalConfirmar">Commit e push</button>
+  </div>
+</dialog>
+
+<script>
+const $ = (sel) => document.querySelector(sel)
+
+const MODOS = [
+  { id: 'textos', nome: 'Textos' },
+  { id: 'services', nome: 'Serviços' },
+  { id: 'team', nome: 'Equipe' },
+  { id: 'hours', nome: 'Horários' },
+  { id: 'contact', nome: 'Marca e contato' },
+  { id: 'booking', nome: 'Regras da agenda' },
+  { id: 'whatsapp', nome: 'Atendimento' },
+]
+
+const estado = {
+  slug: null,
+  grupos: {},
+  modo: 'textos',
+  // textos
+  textos: [],          // catálogo + valor salvo
+  edicoes: {},         // key -> valor na tela (só o que difere do salvo)
+  aba: 'cliente',
+  busca: '',
+  focada: null,
+  // conteúdo
+  conteudo: null,      // o que está no disco
+  rascunho: null,      // o que está na tela
+  dias: [],
+  uso: { services: {}, barbers: {}, semBanco: true },
+}
+
+const emTextos = () => estado.modo === 'textos'
+const clonar = (valor) => JSON.parse(JSON.stringify(valor))
+
+const api = async (metodo, url, corpo) => {
+  const resposta = await fetch(url, {
+    method: metodo,
+    headers: corpo ? { 'content-type': 'application/json' } : {},
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  })
+  const dados = await resposta.json().catch(() => ({}))
+  if (!resposta.ok) throw new Error(dados.erro || `HTTP ${resposta.status}`)
+  return dados
+}
+
+const valorDe = (t) => (estado.edicoes[t.key] !== undefined ? estado.edicoes[t.key] : t.valor)
+
+const conteudoSujo = () =>
+  estado.rascunho !== null && JSON.stringify(estado.rascunho) !== JSON.stringify(estado.conteudo)
+
+const sujo = () => (emTextos() ? Object.keys(estado.edicoes).length > 0 : conteudoSujo())
+
+function situacao(texto, classe = '') {
+  const el = $('#situacao')
+  el.textContent = texto
+  el.className = classe
+}
+
+// --- carregamento ---------------------------------------------------------
+
+async function iniciar() {
+  const { tenants, grupos } = await api('GET', '/api/tenants')
+  estado.grupos = grupos
+
+  const select = $('#tenant')
+  select.innerHTML = tenants
+    .map((t) => `<option value="${t.slug}">${escapar(t.nome)} — ${t.slug}</option>`)
+    .join('')
+  select.onchange = () => trocarTenant(select.value)
+
+  try {
+    const git = await api('GET', '/api/git/status')
+    $('#branch').textContent = `branch ${git.branch}`
+  } catch { /* sem git, o resto do estúdio funciona igual */ }
+
+  if (tenants.length === 0) {
+    $('#lista').innerHTML = '<p class="vazio">Nenhuma barbearia em whatsapp/tenants/.</p>'
+    return
+  }
+  await trocarTenant(tenants[0].slug)
+}
+
+async function trocarTenant(slug) {
+  if (sujo() && !confirm('Você tem edições não salvas. Trocar de barbearia vai descartá-las.')) {
+    $('#tenant').value = estado.slug
+    return
+  }
+  estado.slug = slug
+  estado.edicoes = {}
+  estado.rascunho = null
+  estado.focada = null
+
+  const [textos, conteudo, uso] = await Promise.all([
+    api('GET', `/api/textos/${slug}`),
+    api('GET', `/api/conteudo/${slug}`),
+    api('GET', `/api/conteudo/${slug}/uso`).catch(() => ({ services: {}, barbers: {}, semBanco: true })),
+  ])
+
+  estado.textos = textos.textos
+  estado.conteudo = conteudo.conteudo
+  estado.rascunho = clonar(conteudo.conteudo)
+  estado.dias = conteudo.dias
+  estado.uso = uso
+
+  const avisos = [...textos.avisos, ...conteudo.avisos]
+  situacao(avisos.length ? avisos.join(' · ') : '', avisos.length ? 'erro' : '')
+  desenharModos()
+  desenharAbas()
+  desenhar()
+}
+
+function desenharModos() {
+  $('#modos').innerHTML = MODOS.map(
+    (modo) => `<button class="modo ${modo.id === estado.modo ? 'ativa' : ''}" data-modo="${modo.id}">${modo.nome}</button>`,
+  ).join('')
+  for (const botao of document.querySelectorAll('.modo')) {
+    botao.onclick = () => {
+      if (sujo() && !confirm('Você tem edições não salvas. Trocar de seção vai descartá-las.')) return
+      estado.edicoes = {}
+      estado.rascunho = clonar(estado.conteudo)
+      estado.modo = botao.dataset.modo
+      estado.focada = null
+      $('#salvar').disabled = true
+      $('#reverter').disabled = true
+      desenharModos()
+      desenharAbas()
+      desenhar()
+      if (!emTextos()) previsualizarConteudo()
+    }
+  }
+  // A busca e as abas de grupo só fazem sentido no catálogo de textos.
+  $('#busca').style.display = emTextos() ? '' : 'none'
+  $('#abas').style.display = emTextos() ? '' : 'none'
+}
+
+// --- desenho --------------------------------------------------------------
+
+function escapar(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+}
+
+function desenharAbas() {
+  $('#abas').innerHTML = Object.entries(estado.grupos)
+    .map(([id, nome]) => {
+      const total = estado.textos.filter((t) => t.grupo === id).length
+      const custom = estado.textos.filter((t) => t.grupo === id && (t.customizado || estado.edicoes[t.key] !== undefined)).length
+      const conta = custom ? `<span class="conta">${custom}/${total}</span>` : `<span class="conta">${total}</span>`
+      return `<button class="aba ${id === estado.aba ? 'ativa' : ''}" data-grupo="${id}">${escapar(nome)}${conta}</button>`
+    })
+    .join('')
+  for (const botao of document.querySelectorAll('.aba')) {
+    botao.onclick = () => { estado.aba = botao.dataset.grupo; desenharAbas(); desenhar() }
+  }
+}
+
+function visiveis() {
+  const busca = estado.busca.toLowerCase()
+  return estado.textos.filter((t) => {
+    if (t.grupo !== estado.aba) return false
+    if (!busca) return true
+    return (t.rotulo + t.key + valorDe(t)).toLowerCase().includes(busca)
+  })
+}
+
+function desenhar() {
+  if (!emTextos()) return desenharConteudo()
+
+  const lista = $('#lista')
+  const itens = visiveis()
+
+  const aviso =
+    estado.aba === 'templates'
+      ? `<div class="avisoTemplate">
+           <strong>Editar aqui não muda o que a Meta envia.</strong>
+           Estes são os templates aprovados no WhatsApp Manager. O texto novo só passa a valer
+           depois de você editar e reenviar o template para aprovação lá — este catálogo é a
+           referência do que está cadastrado, e serve para gerar o corpo que você cola no Manager.
+         </div>`
+      : ''
+
+  if (itens.length === 0) {
+    lista.innerHTML = aviso + '<p class="vazio">Nenhum texto com esse termo.</p>'
+    return
+  }
+
+  lista.innerHTML = aviso + itens.map(cartao).join('')
+
+  for (const campo of lista.querySelectorAll('[data-key]')) {
+    const key = campo.dataset.key
+    campo.oninput = () => aoEditar(key, campo)
+    campo.onfocus = () => { estado.focada = key; marcarFoco(); previsualizar(key) }
+  }
+  for (const chip of lista.querySelectorAll('.var')) {
+    chip.onclick = () => inserirVariavel(chip.dataset.alvo, chip.dataset.nome)
+  }
+  for (const botao of lista.querySelectorAll('[data-reset]')) {
+    botao.onclick = () => voltarAoPadrao(botao.dataset.reset)
+  }
+  marcarFoco()
+}
+
+function cartao(t) {
+  const valor = valorDe(t)
+  const mudou = estado.edicoes[t.key] !== undefined
+  const custom = valor !== t.padrao
+  const excedeu = t.limite && valor.length > t.limite
+
+  const campo = t.multilinha
+    ? `<textarea data-key="${t.key}" rows="${Math.min(10, valor.split('\n').length + 1)}">${escapar(valor)}</textarea>`
+    : `<input class="campo" data-key="${t.key}" value="${escapar(valor)}" />`
+
+  const chips = t.variaveis
+    .map((v) => `<button class="var" data-alvo="${t.key}" data-nome="${v}">{${v}}</button>`)
+    .join('')
+
+  const contador = t.limite
+    ? `<span class="contador ${excedeu ? 'estourou' : ''}">${valor.length}/${t.limite}${excedeu ? ' — a Meta vai cortar' : ''}</span>`
+    : `<span class="contador">${valor.length}</span>`
+
+  return `
+    <div class="cartao ${estado.focada === t.key ? 'editando' : ''}" id="cartao-${cssId(t.key)}">
+      <div class="linha1">
+        <div style="flex:1">
+          <h3>${escapar(t.rotulo)}</h3>
+          <div class="chave">${t.key}</div>
+        </div>
+        ${mudou ? '<span class="selo">editado</span>' : custom ? '<span class="selo">customizado</span>' : ''}
+      </div>
+      ${t.ajuda ? `<p class="ajuda">${escapar(t.ajuda)}</p>` : ''}
+      ${campo}
+      <div class="rodapeCartao">
+        ${chips}
+        ${custom ? `<button class="link" data-reset="${t.key}">voltar ao padrão</button>` : ''}
+        ${contador}
+      </div>
+    </div>`
+}
+
+const cssId = (key) => key.replace(/\./g, '-')
+
+function marcarFoco() {
+  for (const cartao of document.querySelectorAll('.cartao')) cartao.classList.remove('editando')
+  if (estado.focada) document.getElementById(`cartao-${cssId(estado.focada)}`)?.classList.add('editando')
+}
+
+// --- edição ---------------------------------------------------------------
+
+function aoEditar(key, campo) {
+  const texto = estado.textos.find((t) => t.key === key)
+  if (campo.value === texto.valor) delete estado.edicoes[key]
+  else estado.edicoes[key] = campo.value
+
+  atualizarRodape(key, campo.value, texto)
+  $('#salvar').disabled = !sujo()
+  $('#reverter').disabled = !sujo()
+  situacao('')
+  desenharAbas()
+  agendarPreview(key)
+}
+
+/** Atualiza contador e selo sem redesenhar — redesenhar tiraria o cursor do campo. */
+function atualizarRodape(key, valor, texto) {
+  const cartao = document.getElementById(`cartao-${cssId(key)}`)
+  if (!cartao) return
+  const contador = cartao.querySelector('.contador')
+  if (texto.limite) {
+    const excedeu = valor.length > texto.limite
+    contador.className = `contador ${excedeu ? 'estourou' : ''}`
+    contador.textContent = `${valor.length}/${texto.limite}${excedeu ? ' — a Meta vai cortar' : ''}`
+  } else {
+    contador.textContent = valor.length
+  }
+  const selo = cartao.querySelector('.selo')
+  const mudou = estado.edicoes[key] !== undefined
+  if (mudou && !selo) cartao.querySelector('.linha1').insertAdjacentHTML('beforeend', '<span class="selo">editado</span>')
+  else if (selo) selo.textContent = mudou ? 'editado' : 'customizado'
+}
+
+function inserirVariavel(key, nome) {
+  const campo = document.querySelector(`[data-key="${key}"]`)
+  if (!campo) return
+  const inicio = campo.selectionStart ?? campo.value.length
+  const fim = campo.selectionEnd ?? inicio
+  campo.value = `${campo.value.slice(0, inicio)}{${nome}}${campo.value.slice(fim)}`
+  campo.focus()
+  campo.setSelectionRange(inicio + nome.length + 2, inicio + nome.length + 2)
+  aoEditar(key, campo)
+}
+
+function voltarAoPadrao(key) {
+  const texto = estado.textos.find((t) => t.key === key)
+  estado.edicoes[key] = texto.padrao
+  if (texto.padrao === texto.valor) delete estado.edicoes[key]
+  $('#salvar').disabled = !sujo()
+  $('#reverter').disabled = !sujo()
+  desenharAbas()
+  desenhar()
+  previsualizar(key)
+}
+
+// --- preview --------------------------------------------------------------
+
+let timerPreview = null
+function agendarPreview(key) {
+  clearTimeout(timerPreview)
+  timerPreview = setTimeout(() => previsualizar(key), 300)
+}
+
+async function previsualizar(key) {
+  try {
+    const preview = await api('POST', `/api/preview/${estado.slug}`, { key, textos: estado.edicoes })
+    $('#zap').innerHTML = preview.tipo === 'payload' ? desenharPayload(preview.payload) : `<div class="bolha">${escapar(preview.texto)}</div>`
+  } catch (erro) {
+    $('#zap').innerHTML = `<p style="color:var(--err);margin:0">${escapar(erro.message)}</p>`
+  }
+}
+
+/** Desenha o payload da Cloud API como o WhatsApp desenharia. */
+function desenharPayload(payload) {
+  if (payload.type === 'text') return `<div class="bolha">${escapar(payload.text.body)}</div>`
+
+  const interativo = payload.interactive || {}
+  const corpo = interativo.body?.text ?? ''
+  let html = `<div class="bolha">${escapar(corpo)}</div>`
+
+  if (interativo.type === 'button') {
+    for (const botao of interativo.action?.buttons ?? []) {
+      html += `<div class="btnZap">${escapar(botao.reply.title)}</div>`
+    }
+  } else if (interativo.type === 'list') {
+    html += `<div class="btnZap">☰ ${escapar(interativo.action?.button ?? '')}</div>`
+    for (const secao of interativo.action?.sections ?? []) {
+      if (secao.title) html += `<div class="secaoZap">${escapar(secao.title)}</div>`
+      for (const linha of secao.rows ?? []) {
+        html += `<div class="rowZap">${escapar(linha.title)}${linha.description ? `<small>${escapar(linha.description)}</small>` : ''}</div>`
+      }
+    }
+  } else if (interativo.type === 'cta_url') {
+    html += `<div class="btnZap">🔗 ${escapar(interativo.action?.parameters?.display_text ?? '')}</div>`
+  }
+
+  if (JSON.stringify(payload).includes('…')) {
+    html += '<p class="cortado" style="font-size:12px;margin:10px 0 0">⚠️ Algum texto foi cortado pela Meta (o “…”).</p>'
+  }
+  return html
+}
+
+
+// --- conteúdo -------------------------------------------------------------
+
+/**
+ * Um campo ligado a um caminho do rascunho, ex.: `services.0.name`.
+ * Toda edição escreve no rascunho e redesenha a prévia — não a lista, para o
+ * cursor não pular do lugar enquanto se digita.
+ */
+function campo(caminho, valor, opcoes = {}) {
+  const { tipo = 'text', rotulo = '', dica = '', largura = '' } = opcoes
+  const attrs = tipo === 'number' ? 'type="number"' : 'type="text"'
+  return `
+    <label style="${largura}">
+      ${rotulo ? `<span class="campoRot">${escapar(rotulo)}${dica ? ` <small>${escapar(dica)}</small>` : ''}</span>` : ''}
+      <input class="campo" ${attrs} data-caminho="${caminho}" value="${escapar(valor ?? '')}" />
+    </label>`
+}
+
+/**
+ * O identificador do item, do jeito que ele é hoje.
+ *
+ * Item que acabou de ser adicionado na tela ainda não tem slug — ele é
+ * carimbado no salvamento, pelo servidor. Quem já existe e está sem slug é um
+ * config antigo, que ganha o dele no próximo salvamento sem mudar de linha no
+ * banco (o slug derivado do nome é exatamente o que o sync já usava).
+ */
+function identidade(item) {
+  if (item.slug) return `<span class="slugTag">${escapar(item.slug)}</span>`
+  if (item._novo) return '<span class="selo">novo</span>'
+  return '<span class="slugTag" title="Recebe o identificador no próximo salvamento">sem identificador</span>'
+}
+
+function interruptor(caminho, valor, rotulo) {
+  return `
+    <label class="switch">
+      <input type="checkbox" data-caminho="${caminho}" ${valor ? 'checked' : ''} />
+      ${escapar(rotulo)}
+    </label>`
+}
+
+function escreverNoRascunho(caminho, valor) {
+  const partes = caminho.split('.')
+  let alvo = estado.rascunho
+  for (const parte of partes.slice(0, -1)) alvo = alvo[parte]
+  alvo[partes.at(-1)] = valor
+}
+
+function ligarCampos() {
+  for (const campo of document.querySelectorAll('[data-caminho]')) {
+    const caminho = campo.dataset.caminho
+    const evento = campo.type === 'checkbox' ? 'onchange' : 'oninput'
+    campo[evento] = () => {
+      const valor =
+        campo.type === 'checkbox' ? campo.checked
+        : campo.type === 'number' ? Number(campo.value)
+        : campo.value
+      escreverNoRascunho(caminho, valor)
+      marcarSujo()
+      agendarPreviewConteudo()
+    }
+  }
+  for (const botao of document.querySelectorAll('[data-acao]')) {
+    botao.onclick = () => acoesConteudo[botao.dataset.acao](botao.dataset)
+  }
+}
+
+function marcarSujo() {
+  $('#salvar').disabled = !sujo()
+  $('#reverter').disabled = !sujo()
+  situacao('')
+}
+
+const acoesConteudo = {
+  novoServico: () => {
+    // slug vazio: o servidor carimba um na gravação, e ele nunca mais muda.
+    estado.rascunho.services.push({
+      slug: '', name: '', price: '', duration: '', durationMin: 0,
+      description: '', imageUrl: '', highlight: false, _novo: true,
+    })
+    redesenharConteudo()
+  },
+  removerServico: ({ indice }) => {
+    const servico = estado.rascunho.services[Number(indice)]
+    const usos = estado.uso.services[servico.slug] ?? 0
+    const aviso = usos
+      ? `\n\n${usos} agendamento(s) futuro(s) usam este serviço. Eles continuam valendo — você é quem avisa essas pessoas.`
+      : ''
+    if (!confirm(`Remover "${servico.name || 'sem nome'}"?${aviso}`)) return
+    estado.rascunho.services.splice(Number(indice), 1)
+    redesenharConteudo()
+  },
+  novoDono: () => {
+    estado.rascunho.whatsapp.owner.phones.push('')
+    redesenharConteudo()
+  },
+  removerDono: ({ indice }) => {
+    estado.rascunho.whatsapp.owner.phones.splice(Number(indice), 1)
+    redesenharConteudo()
+  },
+  novoBarbeiro: () => {
+    estado.rascunho.team.push({
+      slug: '', name: '', role: '', photoUrl: '', instagram: '', phone: '', bookable: true, _novo: true,
+    })
+    redesenharConteudo()
+  },
+  removerBarbeiro: ({ indice }) => {
+    const barbeiro = estado.rascunho.team[Number(indice)]
+    const usos = estado.uso.barbers[barbeiro.slug] ?? 0
+    const aviso = usos
+      ? `\n\n${usos} agendamento(s) futuro(s) são com esta pessoa. Eles continuam valendo — você é quem avisa os clientes.`
+      : ''
+    if (!confirm(`Remover "${barbeiro.name || 'sem nome'}" da equipe?${aviso}`)) return
+    estado.rascunho.team.splice(Number(indice), 1)
+    redesenharConteudo()
+  },
+  novaFaixa: ({ dia }) => {
+    estado.rascunho.hours[dia].push(['09:00', '18:00'])
+    redesenharConteudo()
+  },
+  removerFaixa: ({ dia, indice }) => {
+    estado.rascunho.hours[dia].splice(Number(indice), 1)
+    redesenharConteudo()
+  },
+}
+
+function redesenharConteudo() {
+  marcarSujo()
+  desenharConteudo()
+  previsualizarConteudo()
+}
+
+function desenharConteudo() {
+  $('#lista').innerHTML = ({
+    services: telaServicos,
+    team: telaEquipe,
+    hours: telaHorarios,
+    contact: telaMarca,
+    booking: telaRegras,
+    whatsapp: telaAtendimento,
+  })[estado.modo]()
+  ligarCampos()
+}
+
+function telaServicos() {
+  const itens = estado.rascunho.services.map((servico, i) => {
+    const usos = estado.uso.services[servico.slug] ?? 0
+    return `
+      <div class="cartao item">
+        <button class="remover" data-acao="removerServico" data-indice="${i}">Remover</button>
+        <div class="grade tres">
+          ${campo(`services.${i}.name`, servico.name, { rotulo: 'Nome' })}
+          ${campo(`services.${i}.price`, servico.price, { rotulo: 'Preço', dica: 'texto livre' })}
+          ${campo(`services.${i}.duration`, servico.duration, { rotulo: 'Duração', dica: '"40 min", "1h 10"' })}
+        </div>
+        <div class="grade duas" style="margin-top:10px">
+          ${campo(`services.${i}.description`, servico.description, { rotulo: 'Descrição (site)' })}
+          ${campo(`services.${i}.imageUrl`, servico.imageUrl, { rotulo: 'Foto (site)' })}
+        </div>
+        <div class="rodapeCartao" style="margin-top:10px">
+          ${interruptor(`services.${i}.highlight`, servico.highlight, 'Destaque no site')}
+          ${identidade(servico)}
+          <span class="contador">${usos ? `${usos} agendamento(s) futuro(s)` : ''}</span>
+        </div>
+      </div>`
+  })
+
+  return `
+    <p class="ajuda" style="margin:0 0 12px">
+      Estes são os serviços que o cliente vê no menu do WhatsApp <em>e</em> na landing page.
+      O identificador embaixo de cada um é o que liga o serviço aos agendamentos —
+      renomear não mexe nele, então o histórico continua certo.
+    </p>
+    ${itens.join('') || '<p class="vazio">Nenhum serviço. Sem serviço o cliente não consegue agendar.</p>'}
+    <button class="btn novoItem" data-acao="novoServico">+ Adicionar serviço</button>`
+}
+
+function telaEquipe() {
+  const itens = estado.rascunho.team.map((membro, i) => {
+    const usos = estado.uso.barbers[membro.slug] ?? 0
+    return `
+      <div class="cartao item">
+        <button class="remover" data-acao="removerBarbeiro" data-indice="${i}">Remover</button>
+        <div class="grade duas">
+          ${campo(`team.${i}.name`, membro.name, { rotulo: 'Nome' })}
+          ${campo(`team.${i}.role`, membro.role, { rotulo: 'Função (site)' })}
+        </div>
+        <div class="grade duas" style="margin-top:10px">
+          ${campo(`team.${i}.photoUrl`, membro.photoUrl, { rotulo: 'Foto (site)' })}
+          ${campo(`team.${i}.instagram`, membro.instagram, { rotulo: 'Instagram (site)', dica: 'sem @' })}
+        </div>
+        <div class="grade duas" style="margin-top:10px">
+          ${campo(`team.${i}.phone`, membro.phone, {
+            rotulo: 'WhatsApp (painel do barbeiro)',
+            dica: 'vazio = sem painel',
+          })}
+        </div>
+        <div class="rodapeCartao" style="margin-top:10px">
+          ${interruptor(`team.${i}.bookable`, membro.bookable, 'Aceita agendamento pelo WhatsApp')}
+          ${identidade(membro)}
+          <span class="contador">${usos ? `${usos} agendamento(s) futuro(s)` : ''}</span>
+        </div>
+      </div>`
+  })
+
+  return `
+    <p class="ajuda" style="margin:0 0 12px">
+      Quem tem <strong>agendamento pelo WhatsApp</strong> desligado continua no site, mas some da
+      escolha de barbeiro. Equipe vazia vira uma agenda única no nome da barbearia.
+    </p>
+    <p class="ajuda" style="margin:0 0 12px">
+      O <strong>WhatsApp</strong> de cada um é o que abre o painel dele no bot: escrevendo desse
+      número para a barbearia, ele vê a agenda dele, os cortes dele e tira folga. Quem fica sem
+      número é atendido como cliente, igual a antes. O número não vai para o site.
+    </p>
+    ${itens.join('') || '<p class="vazio">Sem equipe: a agenda é uma só, no nome da barbearia.</p>'}
+    <button class="btn novoItem" data-acao="novoBarbeiro">+ Adicionar pessoa</button>`
+}
+
+function telaHorarios() {
+  const dias = estado.dias.map(({ key, label }) => {
+    const faixas = estado.rascunho.hours[key] ?? []
+    const linhas = faixas.map((faixa, i) => `
+      <div class="faixa">
+        <input class="campo" data-caminho="hours.${key}.${i}.0" value="${escapar(faixa[0])}" />
+        <span style="color:var(--muted)">até</span>
+        <input class="campo" data-caminho="hours.${key}.${i}.1" value="${escapar(faixa[1])}" />
+        <button data-acao="removerFaixa" data-dia="${key}" data-indice="${i}" title="Remover faixa">✕</button>
+      </div>`)
+
+    return `
+      <div class="dia">
+        <div class="nome">${escapar(label)}</div>
+        <div>${linhas.join('') || '<div class="fechado">Fechado</div>'}</div>
+        <button class="link" data-acao="novaFaixa" data-dia="${key}" style="padding-top:10px">+ faixa</button>
+      </div>`
+  })
+
+  return `
+    <p class="ajuda" style="margin:0 0 12px">
+      Sem nenhuma faixa, o dia é <strong>fechado</strong>. Duas faixas fazem o intervalo de almoço.
+      É daqui que sai a grade de horários que o cliente vê.
+    </p>
+    <div class="cartao">${dias.join('')}</div>`
+}
+
+function telaMarca() {
+  const { brand, contact } = estado.rascunho
+  return `
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">A marca</div>
+      <div class="grade duas">
+        ${campo('brand.name', brand.name, { rotulo: 'Nome da barbearia', dica: 'aparece nas mensagens' })}
+        ${campo('brand.tagline', brand.tagline, { rotulo: 'Slogan (site)' })}
+      </div>
+
+      <div class="secTitulo">Contato</div>
+      <div class="grade duas">
+        ${campo('contact.address', contact.address, { rotulo: 'Endereço', dica: 'a opção "Onde ficamos"' })}
+        ${campo('contact.mapsUrl', contact.mapsUrl, { rotulo: 'Link do mapa', dica: 'vazio = gerado do endereço' })}
+      </div>
+      <div class="grade tres" style="margin-top:10px">
+        ${campo('contact.whatsapp', contact.whatsapp, { rotulo: 'WhatsApp' })}
+        ${campo('contact.phone', contact.phone, { rotulo: 'Telefone' })}
+        ${campo('contact.email', contact.email, { rotulo: 'E-mail' })}
+      </div>
+      <p class="ajuda">Endereço vazio tira a opção "Onde ficamos" do menu do cliente.</p>
+    </div>`
+}
+
+function telaRegras() {
+  const b = estado.rascunho.booking
+  return `
+    <p class="ajuda" style="margin:0 0 12px">
+      As regras que decidem o que o cliente consegue fazer atrás do botão "Agendar".
+    </p>
+    <div class="cartao">
+      <div class="grade tres">
+        ${campo('booking.slotStepMin', b.slotStepMin, { tipo: 'number', rotulo: 'Passo da grade', dica: 'minutos' })}
+        ${campo('booking.leadTimeMin', b.leadTimeMin, { tipo: 'number', rotulo: 'Antecedência mínima', dica: 'minutos' })}
+        ${campo('booking.horizonDays', b.horizonDays, { tipo: 'number', rotulo: 'Até quantos dias à frente' })}
+      </div>
+      <div class="grade tres" style="margin-top:10px">
+        ${campo('booking.bufferMin', b.bufferMin, { tipo: 'number', rotulo: 'Folga entre atendimentos', dica: 'minutos' })}
+        ${campo('booking.maxPerContact', b.maxPerContact, { tipo: 'number', rotulo: 'Máximo por cliente' })}
+        ${campo('booking.cancelDeadlineHours', b.cancelDeadlineHours, { tipo: 'number', rotulo: 'Prazo p/ cancelar', dica: 'horas' })}
+      </div>
+      <div class="grade duas" style="margin-top:10px">
+        ${campo('booking.defaultDurationMin', b.defaultDurationMin, { tipo: 'number', rotulo: 'Duração padrão', dica: 'quando o serviço não informa' })}
+      </div>
+    </div>`
+}
+
+function telaAtendimento() {
+  const w = estado.rascunho.whatsapp
+  return `
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">O que o cliente vê</div>
+      ${campo('whatsapp.paymentMethods', w.paymentMethods, { rotulo: 'Formas de pagamento', dica: 'vazio tira a opção do menu' })}
+      <div class="grade duas" style="margin-top:10px">
+        ${campo('whatsapp.reviewUrl', w.reviewUrl, { rotulo: 'Link de avaliação', dica: 'vazio desliga o pós-atendimento' })}
+        ${campo('whatsapp.handoffMinutes', w.handoffMinutes, { tipo: 'number', rotulo: 'Silêncio após chamar atendente', dica: 'minutos' })}
+      </div>
+    </div>
+
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">Quem é o dono</div>
+      <div style="display:grid; gap:8px">
+        ${(w.owner.phones.length ? w.owner.phones : ['']).map((numero, i) => `
+          <div style="display:flex; gap:8px; align-items:flex-end">
+            ${campo(`whatsapp.owner.phones.${i}`, numero, {
+              rotulo: i === 0 ? 'WhatsApp do dono (recebe os avisos)' : 'Outro número com acesso',
+              largura: 'flex:1',
+            })}
+            <button class="btn" data-acao="removerDono" data-indice="${i}">Remover</button>
+          </div>`).join('')}
+      </div>
+      <button class="btn novoItem" data-acao="novoDono">+ Adicionar número</button>
+      <p class="ajuda">
+        Estes números abrem o <strong>painel do dono</strong> no WhatsApp: agenda da casa inteira,
+        bloqueio de horário e pausa do bot. O <strong>primeiro</strong> é quem recebe os avisos
+        automáticos (agendamento novo, cancelamento, cliente pedindo atendente).
+        Deixar a lista vazia não tira o painel de ninguém — mantém o número que já está no
+        servidor. O número não vai para o site.
+      </p>
+    </div>
+
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">O painel do dono</div>
+      <div class="grade tres">
+        ${campo('whatsapp.owner.pauseMinutes', w.owner.pauseMinutes, { tipo: 'number', rotulo: 'Duração da pausa do bot', dica: 'minutos' })}
+        ${campo('whatsapp.owner.afternoonStartHour', w.owner.afternoonStartHour, { tipo: 'number', rotulo: 'A tarde começa às', dica: 'hora' })}
+        ${campo('whatsapp.owner.eveningStartHour', w.owner.eveningStartHour, { tipo: 'number', rotulo: 'A noite começa às', dica: 'hora' })}
+      </div>
+      <p class="ajuda">Usado nos botões "Pausar o bot" e "Bloquear horário" do menu do dono.</p>
+    </div>
+
+    <div class="cartao">
+      <div class="secTitulo" style="margin-top:0">Mensagens programadas</div>
+      <div class="grade duas">
+        ${campo('whatsapp.quietHours.0', w.quietHours[0], { rotulo: 'Silêncio noturno — início' })}
+        ${campo('whatsapp.quietHours.1', w.quietHours[1], { rotulo: 'Silêncio noturno — fim' })}
+      </div>
+      <div style="margin-top:12px; display:grid; gap:8px">
+        ${interruptor('whatsapp.messages.lembrete24h', w.messages.lembrete24h, 'Lembrete de 24h')}
+        ${interruptor('whatsapp.messages.lembrete2h', w.messages.lembrete2h, 'Lembrete de 2h')}
+        ${interruptor('whatsapp.messages.posAtendimento', w.messages.posAtendimento, 'Pós-atendimento')}
+        ${interruptor('whatsapp.messages.reativacao', w.messages.reativacao, 'Reativação (marketing)')}
+        ${interruptor('whatsapp.messages.aniversario', w.messages.aniversario, 'Aniversário (marketing)')}
+      </div>
+      <div class="grade duas" style="margin-top:12px">
+        ${campo('whatsapp.reativacaoDias', w.reativacaoDias, { tipo: 'number', rotulo: 'Dias sem voltar até a reativação' })}
+      </div>
+      <p class="ajuda">
+        Cada mensagem também precisa estar ligada no <code>.env</code> do servidor (<code>FEATURE_*</code>)
+        e ter o template aprovado na Meta.
+      </p>
+    </div>`
+}
+
+let timerPreviewConteudo = null
+function agendarPreviewConteudo() {
+  clearTimeout(timerPreviewConteudo)
+  timerPreviewConteudo = setTimeout(previsualizarConteudo, 300)
+}
+
+async function previsualizarConteudo() {
+  const secao = estado.modo === 'contact' ? 'contact' : estado.modo
+  try {
+    const preview = await api('POST', `/api/preview-conteudo/${estado.slug}`, {
+      secao,
+      conteudo: estado.rascunho,
+    })
+    $('#zap').innerHTML = desenharPayload(preview.payload)
+  } catch (erro) {
+    $('#zap').innerHTML = `<p style="color:var(--muted);margin:0">${escapar(erro.message)}</p>`
+  }
+}
+
+// --- salvar e publicar ----------------------------------------------------
+
+async function salvar() {
+  if (!emTextos()) return salvarConteudo()
+
+  const textos = {}
+  for (const t of estado.textos) textos[t.key] = valorDe(t)
+
+  situacao('Salvando…')
+  try {
+    const r = await api('PUT', `/api/textos/${estado.slug}`, { textos })
+    estado.edicoes = {}
+    const dados = await api('GET', `/api/textos/${estado.slug}`)
+    estado.textos = dados.textos
+    $('#salvar').disabled = true
+    $('#reverter').disabled = true
+    desenharAbas()
+    desenhar()
+    const avisos = r.avisos?.length ? ` · ${r.avisos.join(' · ')}` : ''
+    situacao(`${r.detalhe}${avisos}`, r.aplicado ? 'ok' : 'erro')
+  } catch (erro) {
+    situacao(erro.message, 'erro')
+  }
+}
+
+async function salvarConteudo() {
+  situacao('Salvando…')
+  try {
+    const r = await api('PUT', `/api/conteudo/${estado.slug}`, estado.rascunho)
+
+    // Relê do disco: o servidor carimba o slug dos itens novos, e a tela
+    // precisa passar a conhecê-lo — é ele que amarra o item aos agendamentos.
+    const dados = await api('GET', `/api/conteudo/${estado.slug}`)
+    estado.conteudo = dados.conteudo
+    estado.rascunho = clonar(dados.conteudo)
+    estado.uso = await api('GET', `/api/conteudo/${estado.slug}/uso`).catch(() => estado.uso)
+
+    $('#salvar').disabled = true
+    $('#reverter').disabled = true
+    desenharConteudo()
+    previsualizarConteudo()
+
+    const avisos = r.avisos?.length ? ` · ${r.avisos.join(' · ')}` : ''
+    situacao(`${r.detalhe}${avisos}`, r.aplicado ? 'ok' : 'erro')
+  } catch (erro) {
+    situacao(erro.message, 'erro')
+  }
+}
+
+async function abrirPublicar() {
+  try {
+    const git = await api('GET', '/api/git/status')
+    $('#modalBranch').textContent = git.branch
+    $('#modalDiff').innerHTML = git.diff
+      ? git.diff.split('\n').map((linha) => {
+          const classe = linha.startsWith('+') ? 'mais' : linha.startsWith('-') ? 'menos' : linha.startsWith('@@') || linha.startsWith('diff') ? 'cab' : ''
+          return `<span class="${classe}">${escapar(linha)}</span>`
+        }).join('\n')
+      : 'Nada alterado nos configs das barbearias.'
+    $('#modalPublicar').showModal()
+  } catch (erro) {
+    situacao(erro.message, 'erro')
+  }
+}
+
+async function publicar() {
+  const mensagem = $('#modalMensagem').value.trim()
+  if (!mensagem) return
+  situacao('Publicando…')
+  try {
+    const r = await api('POST', '/api/git/publicar', { mensagem })
+    $('#modalPublicar').close()
+    $('#modalMensagem').value = ''
+    situacao(`Publicado: ${r.commit} na branch ${r.branch}`, 'ok')
+  } catch (erro) {
+    situacao(erro.message, 'erro')
+  }
+}
+
+$('#salvar').onclick = salvar
+$('#publicar').onclick = abrirPublicar
+$('#reverter').onclick = () => {
+  estado.edicoes = {}
+  estado.rascunho = clonar(estado.conteudo)
+  $('#salvar').disabled = true
+  $('#reverter').disabled = true
+  desenharAbas()
+  desenhar()
+  // A prévia mostrava a edição que acabou de sumir.
+  if (emTextos()) {
+    if (estado.focada) previsualizar(estado.focada)
+  } else {
+    previsualizarConteudo()
+  }
+  situacao('Edições descartadas.')
+}
+$('#modalCancelar').onclick = () => $('#modalPublicar').close()
+$('#modalConfirmar').onclick = publicar
+$('#busca').oninput = (e) => { estado.busca = e.target.value; desenhar() }
+
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (sujo()) salvar() }
+})
+window.addEventListener('beforeunload', (e) => { if (sujo()) e.preventDefault() })
+
+iniciar().catch((erro) => {
+  $('#lista').innerHTML = `<p class="vazio" style="color:var(--err)">${escapar(erro.message)}</p>`
+})
+</script>
+</body>
+</html>

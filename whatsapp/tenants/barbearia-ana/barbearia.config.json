@@ -1,0 +1,188 @@
+{
+  "brand": {
+    "name": "Barbearia da Ana",
+    "tagline": "Corte com hora marcada",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#0A0A0B",
+    "surface": "#141417",
+    "text": "#F5F5F4",
+    "muted": "#A1A1AA",
+    "brand": "#8E244D",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(21) 90000-0002",
+    "phone": "(21) 3000-0002",
+    "email": "contato@barbeariaana.com.br",
+    "address": "Rua Voluntários da Pátria, 88 — Botafogo, Rio de Janeiro - RJ",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@barbeariadaana",
+      "facebook": "",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "Hora marcada,\nsem espera",
+    "subheadline": "Barbearia em Botafogo, do clássico ao moderno",
+    "ctaLabel": "Agendar no WhatsApp"
+  },
+  "services": [
+    {
+      "name": "Corte Degradê",
+      "description": "Máquina e tesoura, acabamento na navalha",
+      "price": "R$ 45",
+      "duration": "40 min",
+      "durationMin": 40,
+      "imageUrl": "/fotos/degrade.jpg",
+      "highlight": false
+    },
+    {
+      "name": "Corte + Barba",
+      "description": "O combo completo, com toalha quente",
+      "price": "R$ 75",
+      "duration": "1h 10",
+      "durationMin": 70,
+      "imageUrl": "/fotos/combo.jpg",
+      "highlight": true
+    },
+    {
+      "name": "Barba Terapia",
+      "description": "Toalha quente, óleo e navalha",
+      "price": "R$ 40",
+      "duration": "30 min",
+      "durationMin": 30,
+      "imageUrl": "/fotos/barba.jpg",
+      "highlight": false
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Degradê finalizado"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Acabamento na navalha"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Barba aparada"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Ambiente da barbearia"
+    }
+  ],
+  "team": [
+    {
+      "name": "Ana",
+      "role": "Barbeira-chefe",
+      "photoUrl": "/fotos/ana.jpg",
+      "instagram": "@ana.barber",
+      "bookable": true
+    },
+    {
+      "name": "Lucas",
+      "role": "Barbeiro",
+      "photoUrl": "/fotos/lucas.jpg",
+      "instagram": "",
+      "bookable": true
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Felipe C.",
+      "rating": 5,
+      "text": "Nunca esperei mais de dois minutos.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Marcos V.",
+      "rating": 5,
+      "text": "A Ana entendeu o que eu queria de primeira.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [
+      [
+        "09:00",
+        "19:00"
+      ]
+    ],
+    "tue": [
+      [
+        "09:00",
+        "19:00"
+      ]
+    ],
+    "wed": [
+      [
+        "09:00",
+        "19:00"
+      ]
+    ],
+    "thu": [
+      [
+        "09:00",
+        "20:00"
+      ]
+    ],
+    "fri": [
+      [
+        "09:00",
+        "20:00"
+      ]
+    ],
+    "sat": [
+      [
+        "08:00",
+        "13:00"
+      ],
+      [
+        "14:00",
+        "18:00"
+      ]
+    ],
+    "sun": []
+  },
+  "features": {
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 15,
+    "leadTimeMin": 60,
+    "horizonDays": 21,
+    "bufferMin": 0,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 3,
+    "defaultDurationMin": 40
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, dinheiro, débito e crédito (em até 2x)",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "21:00",
+      "08:00"
+    ],
+    "reativacaoDias": 40,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    }
+  }
+}
