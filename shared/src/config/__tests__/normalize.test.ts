@@ -14,18 +14,18 @@ describe('config vazia', () => {
     quiet()
     expect(normalizeConfig(undefined).brand.name).toBe(DEFAULT_CONFIG.brand.name)
     expect(normalizeConfig(null).colors.brand).toBe(DEFAULT_CONFIG.colors.brand)
-    expect(normalizeConfig('nada disso').services).toHaveLength(DEFAULT_CONFIG.services.length)
+    expect(normalizeConfig('nada disso').areas).toHaveLength(DEFAULT_CONFIG.areas.length)
   })
 })
 
 describe('merge parcial', () => {
   it('mistura o que veio com o padrão, campo a campo', () => {
     const config = normalizeConfig({
-      brand: { name: 'Barbearia do Zé' },
+      brand: { name: 'Boteco do Zé' },
       colors: { brand: '#B8860B' },
     })
 
-    expect(config.brand.name).toBe('Barbearia do Zé')
+    expect(config.brand.name).toBe('Boteco do Zé')
     expect(config.brand.tagline).toBe(DEFAULT_CONFIG.brand.tagline)
     expect(config.colors.brand).toBe('#b8860b')
     expect(config.colors.background).toBe(DEFAULT_CONFIG.colors.background)
@@ -51,11 +51,20 @@ describe('valores inválidos', () => {
     expect(normalizeConfig({ features: { team: 'sim' } as never }).features.team).toBe(true)
   })
 
-  it('serviço sem nome é descartado', () => {
+  it('prato sem nome é descartado', () => {
     quiet()
-    const services = normalizeConfig({ services: [{ name: 'Corte' }, { price: 'R$ 10' } as never] }).services
-    expect(services).toHaveLength(1)
-    expect(services[0]?.name).toBe('Corte')
+    const items = normalizeConfig({
+      menu: { items: [{ name: 'Lasanha' }, { price: 'R$ 10' } as never] },
+    }).menu.items
+    expect(items).toHaveLength(1)
+    expect(items[0]?.name).toBe('Lasanha')
+  })
+
+  it('ambiente sem nome é descartado', () => {
+    quiet()
+    const areas = normalizeConfig({ areas: [{ name: 'Salão', capacity: 30 }, { capacity: 10 } as never] }).areas
+    expect(areas).toHaveLength(1)
+    expect(areas[0]?.name).toBe('Salão')
   })
 
   it('horário mal formatado é ignorado sem derrubar o dia', () => {
@@ -84,15 +93,15 @@ describe('valores inválidos', () => {
 describe('normalizações de conveniência', () => {
   it('tira o @ dos usuários de rede social', () => {
     const config = normalizeConfig({
-      contact: { social: { instagram: '@barbearia' } },
-      team: [{ name: 'Rafa', instagram: '@rafa' }],
+      contact: { social: { instagram: '@cantina' } },
+      team: [{ name: 'Giulia', instagram: '@giulia' }],
     })
-    expect(config.contact.social.instagram).toBe('barbearia')
-    expect(config.team[0]?.instagram).toBe('rafa')
+    expect(config.contact.social.instagram).toBe('cantina')
+    expect(config.team[0]?.instagram).toBe('giulia')
   })
 
   it('apara espaços em volta dos textos', () => {
-    expect(normalizeConfig({ brand: { name: '  Barbearia  ' } }).brand.name).toBe('Barbearia')
+    expect(normalizeConfig({ brand: { name: '  Cantina  ' } }).brand.name).toBe('Cantina')
   })
 
   it('texto vazio num campo obrigatório volta ao padrão', () => {
@@ -103,9 +112,9 @@ describe('normalizações de conveniência', () => {
 describe('booking e whatsapp (config do bot)', () => {
   it('preenche os dois blocos com o padrão quando faltam', () => {
     const config = normalizeConfig({})
-    expect(config.booking.slotStepMin).toBe(15)
-    expect(config.booking.defaultDurationMin).toBe(40)
-    expect(config.whatsapp.quietHours).toEqual(['21:00', '08:00'])
+    expect(config.booking).toEqual(DEFAULT_CONFIG.booking)
+    expect(config.booking.durationMin).toBe(120)
+    expect(config.whatsapp.quietHours).toEqual(DEFAULT_CONFIG.whatsapp.quietHours)
   })
 
   it('as mensagens de marketing nascem desligadas', () => {
@@ -117,11 +126,28 @@ describe('booking e whatsapp (config do bot)', () => {
     expect(messages.aniversario).toBe(false)
   })
 
-  it('número fora da faixa cai no padrão em vez de quebrar a agenda', () => {
+  it('número fora da faixa cai no padrão em vez de quebrar as reservas', () => {
+    quiet()
+    const d = DEFAULT_CONFIG.booking
     // slotStepMin: 0 geraria horários infinitos.
-    expect(normalizeConfig({ booking: { slotStepMin: 0 } }).booking.slotStepMin).toBe(15)
-    expect(normalizeConfig({ booking: { horizonDays: 9999 } }).booking.horizonDays).toBe(21)
-    expect(normalizeConfig({ booking: { leadTimeMin: 'logo' } }).booking.leadTimeMin).toBe(60)
+    expect(normalizeConfig({ booking: { slotStepMin: 0 } }).booking.slotStepMin).toBe(d.slotStepMin)
+    expect(normalizeConfig({ booking: { horizonDays: 9999 } }).booking.horizonDays).toBe(d.horizonDays)
+    expect(normalizeConfig({ booking: { leadTimeMin: 'logo' } }).booking.leadTimeMin).toBe(d.leadTimeMin)
+    expect(normalizeConfig({ booking: { maxPartySize: 0 } }).booking.maxPartySize).toBe(d.maxPartySize)
+  })
+
+  it('aceita as regras de grupo do dono', () => {
+    const { booking } = normalizeConfig({
+      booking: { maxPartySize: 30, approvalAbovePartySize: 10, durationMin: 90, lastSeatingMin: 45 },
+    })
+    expect(booking.maxPartySize).toBe(30)
+    expect(booking.approvalAbovePartySize).toBe(10)
+    expect(booking.durationMin).toBe(90)
+    expect(booking.lastSeatingMin).toBe(45)
+  })
+
+  it('approvalAbovePartySize 0 é válido: confirma tudo direto', () => {
+    expect(normalizeConfig({ booking: { approvalAbovePartySize: 0 } }).booking.approvalAbovePartySize).toBe(0)
   })
 
   it('aceita os valores válidos que o dono escreveu', () => {
@@ -137,32 +163,53 @@ describe('booking e whatsapp (config do bot)', () => {
   })
 
   it('quietHours mal escrito cai no padrão', () => {
-    expect(normalizeConfig({ whatsapp: { quietHours: ['23h', '8h'] } }).whatsapp.quietHours).toEqual([
-      '21:00',
-      '08:00',
-    ])
-    expect(normalizeConfig({ whatsapp: { quietHours: '21:00' } }).whatsapp.quietHours).toEqual([
-      '21:00',
-      '08:00',
-    ])
+    quiet()
+    const padrao = DEFAULT_CONFIG.whatsapp.quietHours
+    expect(normalizeConfig({ whatsapp: { quietHours: ['23h', '8h'] } }).whatsapp.quietHours).toEqual(padrao)
+    expect(normalizeConfig({ whatsapp: { quietHours: '21:00' } }).whatsapp.quietHours).toEqual(padrao)
   })
 
-  it('serviço traz durationMin e barbeiro traz bookable', () => {
+  it('ambiente traz lotação e bookable', () => {
     const config = normalizeConfig({
-      services: [{ name: 'Corte', durationMin: 45 }],
-      team: [{ name: 'Rafael', bookable: false }],
+      areas: [{ name: 'Varanda', capacity: 24, bookable: false }],
     })
-    expect(config.services[0]!.durationMin).toBe(45)
-    expect(config.team[0]!.bookable).toBe(false)
+    expect(config.areas[0]!.capacity).toBe(24)
+    expect(config.areas[0]!.bookable).toBe(false)
   })
 
-  it('bookable ausente vale true — o barbeiro aparece na agenda', () => {
-    expect(normalizeConfig({ team: [{ name: 'Rafael' }] }).team[0]!.bookable).toBe(true)
+  it('bookable ausente vale true — o ambiente aparece nas reservas', () => {
+    expect(normalizeConfig({ areas: [{ name: 'Salão', capacity: 40 }] }).areas[0]!.bookable).toBe(true)
+  })
+
+  it('lotação 0 é aceita: o ambiente fica no site, fora das reservas', () => {
+    expect(normalizeConfig({ areas: [{ name: 'Adega', capacity: 0 }] }).areas[0]!.capacity).toBe(0)
+  })
+})
+
+describe('cardápio', () => {
+  it('sem "menu" herda a demonstração', () => {
+    expect(normalizeConfig({}).menu).toEqual(DEFAULT_CONFIG.menu)
+  })
+
+  it('lê link, categoria, preço e destaque', () => {
+    const { menu } = normalizeConfig({
+      menu: {
+        url: 'https://exemplo.com/cardapio.pdf',
+        items: [{ name: 'Tiramisù', category: 'Sobremesas', price: 'R$ 32', highlight: true }],
+      },
+    })
+    expect(menu.url).toBe('https://exemplo.com/cardapio.pdf')
+    expect(menu.items[0]).toMatchObject({ name: 'Tiramisù', category: 'Sobremesas', price: 'R$ 32', highlight: true })
+  })
+
+  it('"menu" que não é objeto cai no padrão', () => {
+    quiet()
+    expect(normalizeConfig({ menu: 'pdf' as never }).menu).toEqual(DEFAULT_CONFIG.menu)
   })
 })
 
 /**
- * Os telefones do painel — do dono e de cada barbeiro.
+ * Os telefones do painel — do dono e de cada colaborador.
  *
  * A regra que estes testes fixam: o arquivo guarda o número CRU, do jeito que
  * foi digitado. É o que faz "(11) 91234-5678" se ler no diff do pull request,
@@ -170,33 +217,33 @@ describe('booking e whatsapp (config do bot)', () => {
  * gravar no banco, onde existe o DEFAULT_COUNTRY_CODE.
  */
 describe('telefones do painel', () => {
-  it('guarda o telefone do barbeiro cru, sem reescrever a máscara', () => {
+  it('guarda o telefone do colaborador cru, sem reescrever a máscara', () => {
     const config = normalizeConfig({
-      team: [{ slug: 'rafael', name: 'Rafael', phone: '(11) 98888-7766' }],
+      team: [{ slug: 'giulia', name: 'Giulia', phone: '(11) 98888-7766' }],
     })
     expect(config.team[0]!.phone).toBe('(11) 98888-7766')
   })
 
-  it('barbeiro sem telefone fica com string vazia — ele só não tem painel', () => {
-    const config = normalizeConfig({ team: [{ slug: 'rafael', name: 'Rafael' }] })
+  it('colaborador sem telefone fica com string vazia — ele só não tem painel', () => {
+    const config = normalizeConfig({ team: [{ slug: 'giulia', name: 'Giulia' }] })
     expect(config.team[0]!.phone).toBe('')
   })
 
-  it('avisa quando o número está pela metade, mas não descarta o barbeiro', () => {
+  it('avisa quando o número está pela metade, mas não descarta o colaborador', () => {
     const warn = quiet()
     const config = normalizeConfig({
-      team: [{ slug: 'rafael', name: 'Rafael', phone: '9888' }],
+      team: [{ slug: 'giulia', name: 'Giulia', phone: '9888' }],
     })
-    expect(config.team[0]!.name).toBe('Rafael')
+    expect(config.team[0]!.name).toBe('Giulia')
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('team[0].phone'))
   })
 
-  it('avisa quando dois barbeiros dividem o mesmo número', () => {
+  it('avisa quando dois colaboradores dividem o mesmo número', () => {
     const warn = quiet()
     normalizeConfig({
       team: [
-        { slug: 'rafael', name: 'Rafael', phone: '(11) 98888-7766' },
-        { slug: 'diego', name: 'Diego', phone: '11988887766' },
+        { slug: 'giulia', name: 'Giulia', phone: '(11) 98888-7766' },
+        { slug: 'marco', name: 'Marco', phone: '11988887766' },
       ],
     })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('mesmo telefone'))

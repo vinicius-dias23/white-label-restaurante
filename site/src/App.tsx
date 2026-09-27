@@ -1,10 +1,11 @@
+import { Areas } from './components/Areas'
 import { Contact } from './components/Contact'
 import { Footer } from './components/Footer'
 import { Gallery } from './components/Gallery'
 import { Header } from './components/Header'
 import { Hero } from './components/Hero'
 import { Hours } from './components/Hours'
-import { Services } from './components/Services'
+import { Menu } from './components/Menu'
 import { Team } from './components/Team'
 import { Testimonials } from './components/Testimonials'
 import { WhatsAppFab } from './components/WhatsAppFab'
@@ -20,7 +21,8 @@ export default function App() {
 
       <main>
         <Hero />
-        <Services />
+        <Menu />
+        <Areas />
         <Gallery />
         <Team />
         <Testimonials />

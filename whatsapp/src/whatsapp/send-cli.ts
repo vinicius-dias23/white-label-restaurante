@@ -2,7 +2,7 @@ import { closePool } from '../db/pool.js'
 import { findTenantBySlug, getAccessToken, listTenants } from '../db/repositories/tenants.js'
 import { assertEnv } from '../env.js'
 import { isMain } from '../lib/entrypoint.js'
-import { normalizePhone } from '@barbearia/shared/lib/whatsapp'
+import { normalizePhone } from '@restaurante/shared/lib/whatsapp'
 import { WhatsAppClient } from './client.js'
 import { textMessage } from './payloads.js'
 
@@ -11,8 +11,8 @@ import { textMessage } from './payloads.js'
  *
  *   npm run wa:send -- --to="(11) 91234-5678" --text="teste"
  *
- * Lembre da regra da janela de 24h: para um número que nunca falou com a
- * barbearia, este envio FALHA com erro 131047 — e isso é a integração
+ * Lembre da regra da janela de 24h: para um número que nunca falou com o
+ * restaurante, este envio FALHA com erro 131047 — e isso é a integração
  * funcionando, não um bug. Mande "oi" do celular para o número primeiro.
  */
 
@@ -29,14 +29,14 @@ async function main(): Promise<void> {
   const slug = flag('slug')
 
   if (!to) {
-    console.error('\nUso: npm run wa:send -- --to="(11) 91234-5678" [--text="mensagem"] [--slug=barbearia]\n')
+    console.error('\nUso: npm run wa:send -- --to="(11) 91234-5678" [--text="mensagem"] [--slug=restaurante]\n')
     process.exitCode = 1
     return
   }
 
   const tenant = slug ? await findTenantBySlug(slug) : (await listTenants())[0]
   if (!tenant) {
-    console.error('Nenhuma barbearia cadastrada. Rode: npm run tenant:sync')
+    console.error('Nenhum restaurante cadastrado. Rode: npm run tenant:sync')
     process.exitCode = 1
     return
   }

@@ -7,21 +7,21 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: barbearia-db
+    container_name: restaurante-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: barbearia
-      POSTGRES_PASSWORD: barbearia
-      POSTGRES_DB: barbearia
+      POSTGRES_USER: restaurante
+      POSTGRES_PASSWORD: restaurante
+      POSTGRES_DB: restaurante
     ports:
       - '5432:5432'
     volumes:
-      - barbearia-db:/var/lib/postgresql/data
+      - restaurante-db:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U barbearia']
+      test: ['CMD-SHELL', 'pg_isready -U restaurante']
       interval: 5s
       timeout: 3s
       retries: 10
 
 volumes:
-  barbearia-db:
+  restaurante-db:

@@ -1,0 +1,268 @@
+{
+  "brand": {
+    "name": "Churrascaria Fogo Alto",
+    "tagline": "Rodízio de carnes nobres",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#120D0A",
+    "surface": "#1D1511",
+    "text": "#F6F0EA",
+    "muted": "#B3A69C",
+    "brand": "#B5451B",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(41) 90000-0004",
+    "phone": "(41) 3000-0004",
+    "email": "reservas@fogoalto.com.br",
+    "address": "Rua XV de Novembro, 310 — Centro, Curitiba - PR",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@fogoaltochurrascaria",
+      "facebook": "",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "Fogo de chão,\ncarne no ponto",
+    "subheadline": "Rodízio completo no centro de Curitiba",
+    "ctaLabel": "Reservar mesa no WhatsApp"
+  },
+  "menu": {
+    "url": "https://fogoalto.com.br/cardapio",
+    "items": [
+      {
+        "slug": "rodizio-completo",
+        "name": "Rodízio Completo",
+        "description": "Mais de 20 cortes, buffet de saladas e acompanhamentos",
+        "category": "Rodízio",
+        "price": "R$ 139 por pessoa",
+        "imageUrl": "/fotos/rodizio.jpg",
+        "highlight": true
+      },
+      {
+        "slug": "rodizio-infantil",
+        "name": "Rodízio Infantil",
+        "description": "De 6 a 12 anos",
+        "category": "Rodízio",
+        "price": "R$ 69",
+        "imageUrl": "/fotos/infantil.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "picanha-fatiada",
+        "name": "Picanha Fatiada",
+        "description": "O corte mais pedido da casa",
+        "category": "Cortes",
+        "price": "incluso no rodízio",
+        "imageUrl": "/fotos/picanha.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "costela-de-fogo-de-chao",
+        "name": "Costela de Fogo de Chão",
+        "description": "12 horas no fogo",
+        "category": "Cortes",
+        "price": "incluso no rodízio",
+        "imageUrl": "/fotos/costela.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "abacaxi-com-canela",
+        "name": "Abacaxi com Canela",
+        "description": "Assado na brasa",
+        "category": "Sobremesas",
+        "price": "incluso no rodízio",
+        "imageUrl": "/fotos/abacaxi.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "vinho-tannat",
+        "name": "Tannat Reserva",
+        "description": "Garrafa, Campanha Gaúcha",
+        "category": "Bebidas",
+        "price": "R$ 148",
+        "imageUrl": "/fotos/vinho.jpg",
+        "highlight": false
+      }
+    ]
+  },
+  "areas": [
+    {
+      "slug": "salao-principal",
+      "name": "Salão principal",
+      "description": "Amplo, perto das churrasqueiras",
+      "capacity": 120,
+      "imageUrl": "/fotos/salao.jpg",
+      "bookable": true
+    },
+    {
+      "slug": "mezanino",
+      "name": "Mezanino",
+      "description": "Mais reservado, ótimo para grupos",
+      "capacity": 40,
+      "imageUrl": "/fotos/mezanino.jpg",
+      "bookable": true
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Churrasqueira de fogo de chão"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Picanha fatiada"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Salão principal"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Buffet de saladas"
+    }
+  ],
+  "team": [
+    {
+      "slug": "otavio",
+      "name": "Otávio",
+      "role": "Churrasqueiro-chefe",
+      "photoUrl": "/fotos/otavio.jpg",
+      "instagram": "",
+      "phone": ""
+    },
+    {
+      "slug": "sandra",
+      "name": "Sandra",
+      "role": "Recepção",
+      "photoUrl": "/fotos/sandra.jpg",
+      "instagram": "",
+      "phone": "(41) 97777-0004"
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Henrique L.",
+      "rating": 5,
+      "text": "Fomos em 15 e a mesa já estava montada.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Diego F.",
+      "rating": 5,
+      "text": "Carne no ponto certo e atendimento rápido.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [
+      [
+        "11:30",
+        "15:00"
+      ]
+    ],
+    "tue": [
+      [
+        "11:30",
+        "15:00"
+      ],
+      [
+        "18:30",
+        "23:00"
+      ]
+    ],
+    "wed": [
+      [
+        "11:30",
+        "15:00"
+      ],
+      [
+        "18:30",
+        "23:00"
+      ]
+    ],
+    "thu": [
+      [
+        "11:30",
+        "15:00"
+      ],
+      [
+        "18:30",
+        "23:00"
+      ]
+    ],
+    "fri": [
+      [
+        "11:30",
+        "15:00"
+      ],
+      [
+        "18:30",
+        "23:30"
+      ]
+    ],
+    "sat": [
+      [
+        "11:30",
+        "23:30"
+      ]
+    ],
+    "sun": [
+      [
+        "11:30",
+        "17:00"
+      ]
+    ]
+  },
+  "features": {
+    "menu": true,
+    "areas": true,
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 30,
+    "leadTimeMin": 60,
+    "horizonDays": 30,
+    "durationMin": 120,
+    "lastSeatingMin": 60,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 4,
+    "maxPartySize": 40,
+    "approvalAbovePartySize": 15
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, dinheiro, débito, crédito e vale-refeição",
+    "reviewUrl": "",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "23:00",
+      "09:00"
+    ],
+    "reativacaoDias": 45,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": false,
+      "reativacao": false,
+      "aniversario": false
+    },
+    "owner": {
+      "phones": [
+        "(41) 90000-0004"
+      ],
+      "pauseMinutes": 60,
+      "afternoonStartHour": 11,
+      "eveningStartHour": 18
+    },
+    "textos": {}
+  }
+}

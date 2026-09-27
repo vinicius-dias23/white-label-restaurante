@@ -1,5 +1,6 @@
-import type { ThemeColors } from '@barbearia/shared/config'
-import { contrast, ensureContrast, lighten, mix, readableOn, withAlpha } from '@barbearia/shared/lib/color'
+import type { ThemeColors } from '@restaurante/shared/config'
+import { talheresSvg } from './talheres'
+import { contrast, ensureContrast, lighten, mix, readableOn, withAlpha } from '@restaurante/shared/lib/color'
 
 /**
  * Traduz as cores do config nas custom properties que o CSS consome.
@@ -50,12 +51,12 @@ export function applyTheme(colors: ThemeColors, root: HTMLElement = document.doc
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', colors.background)
 }
 
-/** Favicon padrão: navalha na cor da marca sobre o fundo do tema. */
+/** Favicon padrão: garfo e faca cruzados na cor da marca sobre o fundo do tema. */
 export function defaultFavicon(colors: ThemeColors): string {
   const accent = colors.brandAccent || ensureContrast(colors.brand, colors.background, 4.5)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
 <rect width="32" height="32" rx="7" fill="${colors.background}"/>
-<path d="M9 21.5 21.5 9M9 21.5l2.6 2.6 12.5-12.5-2.6-2.6M9 21.5 6.4 24l2.6 2.6" stroke="${accent}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+${talheresSvg(16, 16, 1.45, accent)}
 </svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg.replace(/\n/g, ''))}`
 }

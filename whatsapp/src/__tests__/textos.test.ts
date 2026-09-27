@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CONFIG, TEXTOS, TEXTO_KEYS, type TextoKey } from '@barbearia/shared/config'
+import { DEFAULT_CONFIG, TEXTOS, TEXTO_KEYS, type TextoKey } from '@restaurante/shared/config'
 import { makeT } from '../bot/textos.js'
 
 /**
@@ -37,7 +37,7 @@ const codigo = PASTAS.flatMap((pasta) => arquivosTs(join(SRC, pasta)))
  * contam igual.
  */
 const usadas = new Set(
-  [...codigo.matchAll(/'((?:cliente|dono|barbeiro|rotulos|template)\.[\w.]+)'/g)].map(
+  [...codigo.matchAll(/'((?:cliente|dono|recepcao|rotulos|template)\.[\w.]+)'/g)].map(
     (match) => match[1] as string,
   ),
 )
@@ -59,14 +59,14 @@ describe('catálogo de textos', () => {
 })
 
 describe('makeT', () => {
-  it('devolve o padrão quando a barbearia não customizou nada', () => {
+  it('devolve o padrão quando o restaurante não customizou nada', () => {
     const t = makeT(DEFAULT_CONFIG)
-    expect(t('cliente.menu.saudacao', { marca: 'Barbearia do Zé' })).toBe(
-      'Olá! Aqui é a Barbearia do Zé 💈',
+    expect(t('cliente.menu.saudacao', { marca: 'Cantina do Zé' })).toBe(
+      'Olá! Aqui é a Cantina do Zé 🍝',
     )
   })
 
-  it('usa o texto da barbearia quando existe', () => {
+  it('usa o texto do restaurante quando existe', () => {
     const config = {
       ...DEFAULT_CONFIG,
       whatsapp: {
@@ -84,10 +84,10 @@ describe('makeT', () => {
       ...DEFAULT_CONFIG,
       whatsapp: {
         ...DEFAULT_CONFIG.whatsapp,
-        greeting: 'Fala! Barbearia do Zé na área.',
+        greeting: 'Fala! Cantina do Zé na área.',
         textos: { 'cliente.menu.saudacao': 'Isto aqui perde' } as Partial<Record<TextoKey, string>>,
       },
     }
-    expect(makeT(config)('cliente.menu.saudacao', { marca: 'x' })).toBe('Fala! Barbearia do Zé na área.')
+    expect(makeT(config)('cliente.menu.saudacao', { marca: 'x' })).toBe('Fala! Cantina do Zé na área.')
   })
 })

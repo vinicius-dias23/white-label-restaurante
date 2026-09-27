@@ -1,5 +1,5 @@
 import { config } from '../config'
-import { RazorIcon } from './Icons'
+import { CutleryIcon } from './Icons'
 
 interface LogoProps {
   className?: string
@@ -23,8 +23,8 @@ const SIZES = {
 } as const
 
 /**
- * Logo da barbearia: a imagem do config quando existe, senão a marca
- * padrão — navalha na cor de acento + nome em caixa alta. Como a marca
+ * Logo do restaurante: a imagem do config quando existe, senão a marca
+ * padrão — garfo e faca cruzados na cor de acento + nome em caixa alta. Como a marca
  * padrão é montada com o nome configurado, o site nunca fica sem identidade.
  */
 export function Logo({ className = '', size = 'md' }: LogoProps) {
@@ -43,7 +43,7 @@ export function Logo({ className = '', size = 'md' }: LogoProps) {
 
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
-      <RazorIcon className={`${s.icon} shrink-0 text-accent`} />
+      <CutleryIcon className={`${s.icon} shrink-0 text-accent`} />
       <span className={`font-display ${s.text} leading-none tracking-wide`}>{name}</span>
     </span>
   )

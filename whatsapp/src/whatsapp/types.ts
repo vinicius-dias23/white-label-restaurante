@@ -24,7 +24,7 @@ export interface WebhookValue {
   messaging_product?: string
   metadata?: {
     display_phone_number?: string
-    /** É por aqui que descobrimos de qual barbearia é a mensagem. */
+    /** É por aqui que descobrimos de qual restaurante é a mensagem. */
     phone_number_id?: string
   }
   contacts?: { profile?: { name?: string }; wa_id?: string }[]

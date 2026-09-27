@@ -1,4 +1,5 @@
 import type { SVGProps } from 'react'
+import { FORK_PATH, KNIFE_PATH } from '../lib/talheres'
 
 /** Ícones inline — evita uma dependência inteira para meia dúzia de traços. */
 
@@ -62,25 +63,32 @@ export const RouteIcon = (props: IconProps) => (
   </svg>
 )
 
-export const ClockIcon = (props: IconProps) => (
-  <svg {...base(props)}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5.2l3.2 2" />
+/**
+ * Garfo e faca cruzados, preenchidos — a marca padrão do restaurante (ver
+ * `lib/talheres.ts`). Preenchido em vez de traço porque vira logo: precisa
+ * de peso para ficar de pé ao lado do nome em letras grandes.
+ */
+export const CutleryIcon = (props: IconProps) => (
+  <svg {...base(props)} stroke="none" fill="currentColor">
+    <path transform="translate(12 12) rotate(-40) scale(1.2)" d={FORK_PATH} />
+    <path transform="translate(12 12) rotate(40) scale(1.2)" d={KNIFE_PATH} />
   </svg>
 )
 
-export const RazorIcon = (props: IconProps) => (
+/** Lotação do ambiente: "até 40 pessoas". */
+export const UsersIcon = (props: IconProps) => (
   <svg {...base(props)}>
-    <path d="M8 16 20 4M8 16l2.4 2.4L22.4 6.4 20 4M8 16l-2.4 2.4L8 20.8" />
-    <path d="M5.6 18.4 2 22" />
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3 19.5c.6-3.3 3-5.3 6-5.3s5.4 2 6 5.3" />
+    <path d="M15.5 4.9a3.2 3.2 0 0 1 0 6.2M17.6 14.4c1.8.7 3 2.5 3.4 5.1" />
   </svg>
 )
 
-export const ScissorsIcon = (props: IconProps) => (
+/** Cardápio aberto — o botão do cardápio completo. */
+export const BookOpenIcon = (props: IconProps) => (
   <svg {...base(props)}>
-    <circle cx="6" cy="6" r="2.6" />
-    <circle cx="6" cy="18" r="2.6" />
-    <path d="M8 7.6 20 18M8 16.4 20 6" />
+    <path d="M12 6.5C10.3 5.2 7.9 4.5 3.5 4.5v13c4.4 0 6.8.7 8.5 2 1.7-1.3 4.1-2 8.5-2v-13c-4.4 0-6.8.7-8.5 2Z" />
+    <path d="M12 6.5v13" />
   </svg>
 )
 

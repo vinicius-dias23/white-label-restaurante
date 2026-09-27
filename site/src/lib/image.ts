@@ -1,3 +1,5 @@
+import { talheresSvg } from './talheres'
+
 /**
  * Ajuste de imagens remotas.
  *
@@ -49,7 +51,7 @@ export function buildSrcSet(url: string, options: SizeOptions): string | undefin
 
 /**
  * Placeholder usado quando a imagem não carrega (link quebrado, offline)
- * ou quando o config não trouxe foto: gradiente escuro com a navalha da
+ * ou quando o config não trouxe foto: gradiente escuro com os talheres da
  * marca, no lugar do ícone de imagem quebrada do navegador.
  */
 export function placeholderImage(seed: string, accent: string, background: string): string {
@@ -60,9 +62,8 @@ export function placeholderImage(seed: string, accent: string, background: strin
 <stop offset="0" stop-color="${background}"/><stop offset="1" stop-color="${accent}" stop-opacity="0.35"/>
 </linearGradient></defs>
 <rect width="400" height="400" fill="url(#${id})"/>
-<g stroke="${accent}" stroke-opacity="0.5" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none">
-<path d="M150 250 250 150M150 250l20 20 100-100-20-20M150 250l-20 20 20 20"/>
-</g></svg>`
+${talheresSvg(200, 200, 5, accent, 0.5)}
+</svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg.replace(/\n/g, ''))}`
 }
 

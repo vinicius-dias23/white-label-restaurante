@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { TouchEvent } from 'react'
-import type { GalleryImage } from '@barbearia/shared/config'
+import type { GalleryImage } from '@restaurante/shared/config'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { ArrowLeftIcon, ArrowRightIcon, CloseIcon } from './Icons'
 import { SmartImage } from './SmartImage'

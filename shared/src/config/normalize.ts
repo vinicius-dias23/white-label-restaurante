@@ -6,8 +6,10 @@ import { DAY_KEYS } from './types.js'
 import type {
   BookingConfig,
   DayKey,
+  Area,
   GalleryImage,
-  Service,
+  MenuConfig,
+  MenuItem,
   SiteConfig,
   TeamMember,
   Testimonial,
@@ -41,7 +43,7 @@ function isDev(): boolean {
 }
 
 function defaultWarn(message: string): void {
-  if (isDev()) console.warn(`[barbearia.config.json] ${message}`)
+  if (isDev()) console.warn(`[restaurante.config.json] ${message}`)
 }
 
 let warnHandler: WarnHandler = defaultWarn
@@ -168,7 +170,7 @@ function parseHours(value: unknown): WeeklyHours {
 }
 
 /**
- * Slug fixo de um serviço ou barbeiro.
+ * Slug fixo de um prato, ambiente ou colaborador.
  *
  * Vazio (o normal) = derivado do nome na hora do sync. Preenchido, ele é a
  * identidade da linha no banco e não pode virar qualquer coisa: só letras,
@@ -190,7 +192,7 @@ function slugFixo(value: unknown, field: string): string {
 }
 
 /**
- * Telefone do painel — do dono ou de um barbeiro.
+ * Telefone do painel — do dono ou de um colaborador da recepção.
  *
  * O valor fica CRU, do jeito que foi digitado: é assim que "(11) 91234-5678" se
  * lê no diff do pull request, e a heurística do nono dígito do `normalizePhone`
@@ -198,7 +200,7 @@ function slugFixo(value: unknown, field: string): string {
  * hora de gravar no banco, onde existe o DEFAULT_COUNTRY_CODE.
  *
  * Aqui só conferimos se sobrou número suficiente para o painel abrir — um
- * telefone digitado pela metade some sem aviso nenhum, e o barbeiro passa a
+ * telefone digitado pela metade some sem aviso nenhum, e a recepção passa a
  * semana achando que o bot está quebrado.
  */
 function parseTelefone(value: unknown, field: string): string {
@@ -209,21 +211,55 @@ function parseTelefone(value: unknown, field: string): string {
   return cru
 }
 
-function parseService(raw: Record<string, unknown>, index: number, fallback: Service): Service | null {
-  const name = str(raw.name, '', `services[${index}].name`)
+function parseMenuItem(raw: Record<string, unknown>, index: number, fallback: MenuItem): MenuItem | null {
+  const field = `menu.items[${index}]`
+  const name = str(raw.name, '', `${field}.name`)
   if (!name) {
-    warn(`"services[${index}]" está sem "name" — item ignorado.`)
+    warn(`"${field}" está sem "name" — item ignorado.`)
     return null
   }
   return {
-    slug: slugFixo(raw.slug, `services[${index}].slug`),
+    slug: slugFixo(raw.slug, `${field}.slug`),
     name,
-    description: optionalStr(raw.description, '', `services[${index}].description`),
-    price: optionalStr(raw.price, '', `services[${index}].price`),
-    duration: optionalStr(raw.duration, '', `services[${index}].duration`),
-    durationMin: num(raw.durationMin, 0, `services[${index}].durationMin`, 0, 8 * 60),
-    imageUrl: optionalStr(raw.imageUrl, fallback.imageUrl, `services[${index}].imageUrl`),
-    highlight: bool(raw.highlight, false, `services[${index}].highlight`),
+    description: optionalStr(raw.description, '', `${field}.description`),
+    category: optionalStr(raw.category, '', `${field}.category`),
+    price: optionalStr(raw.price, '', `${field}.price`),
+    imageUrl: optionalStr(raw.imageUrl, fallback.imageUrl, `${field}.imageUrl`),
+    highlight: bool(raw.highlight, false, `${field}.highlight`),
+  }
+}
+
+function parseMenu(value: unknown): MenuConfig {
+  const d = DEFAULT_CONFIG.menu
+  if (value === undefined) return d
+  if (!isObject(value)) {
+    warn('"menu" deveria ser um objeto com "url" e "items" — usando o padrão.')
+    return d
+  }
+  return {
+    url: optionalStr(value.url, d.url, 'menu.url'),
+    items: list<MenuItem>(value.items, d.items, 'menu.items', (item, i) =>
+      parseMenuItem(item, i, d.items[i % d.items.length] ?? d.items[0]!),
+    ),
+  }
+}
+
+function parseArea(raw: Record<string, unknown>, index: number, fallback: Area): Area | null {
+  const field = `areas[${index}]`
+  const name = str(raw.name, '', `${field}.name`)
+  if (!name) {
+    warn(`"${field}" está sem "name" — item ignorado.`)
+    return null
+  }
+  return {
+    slug: slugFixo(raw.slug, `${field}.slug`),
+    name,
+    description: optionalStr(raw.description, '', `${field}.description`),
+    // Sem lotação o ambiente não recebe ninguém: 0 é aceito e tira ele das
+    // reservas sem tirar do site, igual a `bookable: false`.
+    capacity: num(raw.capacity, fallback.capacity, `${field}.capacity`, 0, 2000),
+    imageUrl: optionalStr(raw.imageUrl, fallback.imageUrl, `${field}.imageUrl`),
+    bookable: bool(raw.bookable, true, `${field}.bookable`),
   }
 }
 
@@ -244,14 +280,23 @@ function parseBooking(value: unknown): BookingConfig {
     warn('"booking" deveria ser um objeto — usando o padrão.')
     return d
   }
+  const maxPartySize = num(value.maxPartySize, d.maxPartySize, 'booking.maxPartySize', 1, 500)
   return {
     slotStepMin: num(value.slotStepMin, d.slotStepMin, 'booking.slotStepMin', 5, 120),
     leadTimeMin: num(value.leadTimeMin, d.leadTimeMin, 'booking.leadTimeMin', 0, 7 * 24 * 60),
     horizonDays: num(value.horizonDays, d.horizonDays, 'booking.horizonDays', 1, 180),
-    bufferMin: num(value.bufferMin, d.bufferMin, 'booking.bufferMin', 0, 120),
+    durationMin: num(value.durationMin, d.durationMin, 'booking.durationMin', 15, 8 * 60),
+    lastSeatingMin: num(value.lastSeatingMin, d.lastSeatingMin, 'booking.lastSeatingMin', 0, 6 * 60),
     maxPerContact: num(value.maxPerContact, d.maxPerContact, 'booking.maxPerContact', 1, 20),
     cancelDeadlineHours: num(value.cancelDeadlineHours, d.cancelDeadlineHours, 'booking.cancelDeadlineHours', 0, 72),
-    defaultDurationMin: num(value.defaultDurationMin, d.defaultDurationMin, 'booking.defaultDurationMin', 5, 8 * 60),
+    maxPartySize,
+    approvalAbovePartySize: num(
+      value.approvalAbovePartySize,
+      d.approvalAbovePartySize,
+      'booking.approvalAbovePartySize',
+      0,
+      500,
+    ),
   }
 }
 
@@ -383,8 +428,10 @@ export function normalizeConfig(input: unknown): SiteConfig {
   const hero = isObject(raw.hero) ? raw.hero : {}
   const features = isObject(raw.features) ? raw.features : {}
 
-  const services = list<Service>(raw.services, d.services, 'services', (item, i) =>
-    parseService(item, i, d.services[i % d.services.length] ?? d.services[0]!),
+  const menu = parseMenu(raw.menu)
+
+  const areas = list<Area>(raw.areas, d.areas, 'areas', (item, i) =>
+    parseArea(item, i, d.areas[i % d.areas.length] ?? d.areas[0]!),
   )
 
   const gallery = list<GalleryImage>(raw.gallery, d.gallery, 'gallery', (item, i) => {
@@ -409,11 +456,10 @@ export function normalizeConfig(input: unknown): SiteConfig {
       photoUrl: optionalStr(item.photoUrl, '', `team[${i}].photoUrl`),
       instagram: optionalStr(item.instagram, '', `team[${i}].instagram`).replace(/^@/, ''),
       phone: parseTelefone(item.phone, `team[${i}].phone`),
-      bookable: bool(item.bookable, true, `team[${i}].bookable`),
     }
   })
 
-  // Dois barbeiros com o mesmo número: o painel abre para um só, e sem isto
+  // Dois colaboradores com o mesmo número: o painel abre para um só, e sem isto
   // ninguém descobre qual. Não é erro fatal — o config continua válido.
   const telefonesVistos = new Map<string, string>()
   for (const member of team) {
@@ -474,7 +520,8 @@ export function normalizeConfig(input: unknown): SiteConfig {
       subheadline: optionalStr(hero.subheadline, d.hero.subheadline, 'hero.subheadline'),
       ctaLabel: str(hero.ctaLabel, d.hero.ctaLabel, 'hero.ctaLabel'),
     },
-    services,
+    menu,
+    areas,
     gallery,
     team,
     testimonials,
@@ -482,6 +529,8 @@ export function normalizeConfig(input: unknown): SiteConfig {
     booking: parseBooking(raw.booking),
     whatsapp: parseWhatsApp(raw.whatsapp),
     features: {
+      menu: bool(features.menu, d.features.menu, 'features.menu'),
+      areas: bool(features.areas, d.features.areas, 'features.areas'),
       gallery: bool(features.gallery, d.features.gallery, 'features.gallery'),
       team: bool(features.team, d.features.team, 'features.team'),
       testimonials: bool(features.testimonials, d.features.testimonials, 'features.testimonials'),

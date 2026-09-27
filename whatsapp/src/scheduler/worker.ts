@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { findAppointment } from '../db/repositories/appointments.js'
+import { findReservation } from '../db/repositories/reservations.js'
 import { findContactById, isWithinServiceWindow } from '../db/repositories/contacts.js'
 import { claimDue, markFailed, markSent, markSkipped, releaseStale, type OutboxItem } from '../db/repositories/outbox.js'
 import { logOutbound } from '../db/repositories/messages.js'
@@ -15,8 +15,8 @@ import { runDailyJobs } from './jobs.js'
  * O worker: tira mensagens da fila e envia na hora marcada.
  *
  * Antes de cada envio ele confere de novo se aquela mensagem ainda faz sentido.
- * Isso importa porque entre agendar o lembrete e enviá-lo passa um dia inteiro,
- * e no meio disso o cliente pode ter cancelado o corte ou pedido para sair da
+ * Isso importa porque entre programar o lembrete e enviá-lo passa um dia inteiro,
+ * e no meio disso o cliente pode ter cancelado a reserva ou pedido para sair da
  * lista. Enviar assim mesmo seria pior que não enviar nada.
  */
 
@@ -36,14 +36,14 @@ async function shouldSkip(item: OutboxItem): Promise<SkipReason> {
   const isMarketing = item.kind === 'reativacao' || item.kind === 'aniversario'
   if (isMarketing && !contact.marketingOptIn) return 'sem opt-in de marketing'
 
-  // O corte foi cancelado depois que o lembrete entrou na fila.
-  if (item.appointmentId) {
-    const appointment = await findAppointment(item.appointmentId)
-    if (!appointment) return 'agendamento não existe mais'
-    if (appointment.status === 'cancelled') return 'agendamento cancelado'
+  // A reserva foi cancelada (ou recusada) depois que o lembrete entrou na fila.
+  if (item.reservationId) {
+    const reservation = await findReservation(item.reservationId)
+    if (!reservation) return 'reserva não existe mais'
+    if (reservation.status === 'cancelled' || reservation.status === 'declined') return 'reserva cancelada'
 
     const isReminder = item.kind === 'lembrete24h' || item.kind === 'lembrete2h'
-    if (isReminder && appointment.startsAt < new Date()) return 'o horário já passou'
+    if (isReminder && reservation.startsAt < new Date()) return 'o horário já passou'
   }
 
   // Texto livre fora da janela de 24h a Meta recusa — melhor não gastar a
@@ -66,13 +66,13 @@ async function processItem(item: OutboxItem): Promise<void> {
 
   const tenant = await findTenantById(item.tenantId)
   if (!tenant) {
-    await markSkipped(item.id, 'barbearia não existe mais')
+    await markSkipped(item.id, 'restaurante não existe mais')
     return
   }
 
   const ctx = await getTenantContext(tenant.phoneNumberId)
   if (!ctx) {
-    await markFailed(item.id, 'barbearia sem credenciais válidas', false, env.worker.maxAttempts)
+    await markFailed(item.id, 'restaurante sem credenciais válidas', false, env.worker.maxAttempts)
     return
   }
 

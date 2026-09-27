@@ -1,17 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bookingMessage, mapsUrl, normalizePhone, serviceMessage, telUrl, whatsappUrl } from '../whatsapp.js'
-import type { Service } from '../../config/types.js'
-
-const service: Service = {
-  slug: '',
-  name: 'Corte + Barba',
-  description: '',
-  price: 'R$ 75',
-  duration: '1h',
-  durationMin: 0,
-  imageUrl: '',
-  highlight: true,
-}
+import { areaMessage, bookingMessage, mapsUrl, normalizePhone, telUrl, whatsappUrl } from '../whatsapp.js'
 
 describe('normalizePhone', () => {
   it('acrescenta o DDI quando o número vem só com DDD', () => {
@@ -46,26 +34,23 @@ describe('whatsappUrl', () => {
   })
 
   it('codifica a mensagem na query', () => {
-    const url = whatsappUrl('11912345678', 'Olá! Agendar?')
-    expect(url).toBe('https://wa.me/5511912345678?text=Ol%C3%A1!%20Agendar%3F')
+    const url = whatsappUrl('11912345678', 'Olá! Reservar?')
+    expect(url).toBe('https://wa.me/5511912345678?text=Ol%C3%A1!%20Reservar%3F')
   })
 })
 
 describe('mensagens', () => {
-  it('inclui nome e preço do serviço', () => {
-    expect(serviceMessage(service, 'Barbearia do Zé')).toBe(
-      'Olá, Barbearia do Zé! Gostaria de agendar: Corte + Barba (R$ 75).',
-    )
+  it('tem uma mensagem genérica de reserva para o botão flutuante', () => {
+    expect(bookingMessage('Cantina Bella Nonna')).toBe('Olá, Cantina Bella Nonna! Gostaria de reservar uma mesa.')
   })
 
-  it('omite o preço quando não há', () => {
-    expect(serviceMessage({ ...service, price: '' }, 'Barbearia')).toBe(
-      'Olá, Barbearia! Gostaria de agendar: Corte + Barba.',
-    )
+  it('o card do ambiente já diz onde o cliente quer sentar', () => {
+    expect(areaMessage('Varanda', 'Cantina')).toBe('Olá, Cantina! Gostaria de reservar uma mesa na Varanda.')
   })
 
-  it('tem uma mensagem genérica para o botão flutuante', () => {
-    expect(bookingMessage('Barbearia')).toContain('agendar um horário')
+  it('as duas carregam a frase que o bot reconhece', () => {
+    expect(bookingMessage('X').toLowerCase()).toContain('gostaria de reservar')
+    expect(areaMessage('Salão', 'X').toLowerCase()).toContain('uma mesa na ')
   })
 })
 

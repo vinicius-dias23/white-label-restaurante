@@ -1,5 +1,5 @@
 import { config, DAY_LABELS_SHORT } from '../config'
-import { getOpenState, nextOpening } from '@barbearia/shared/lib/hours'
+import { getOpenState, nextOpening } from '@restaurante/shared/lib/hours'
 import { useNow } from '../hooks/useNow'
 
 interface OpenBadgeProps {

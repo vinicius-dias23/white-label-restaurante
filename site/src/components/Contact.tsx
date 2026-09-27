@@ -1,5 +1,5 @@
 import { config } from '../config'
-import { bookingMessage, mapEmbedUrl, mapsUrl, telUrl, whatsappUrl } from '@barbearia/shared/lib/whatsapp'
+import { bookingMessage, mapEmbedUrl, mapsUrl, telUrl, whatsappUrl } from '@restaurante/shared/lib/whatsapp'
 import {
   FacebookIcon,
   InstagramIcon,
@@ -79,7 +79,7 @@ export function Contact() {
               className="btn btn-brand"
             >
               <WhatsAppIcon className="size-5" />
-              WhatsApp
+              Reservar mesa
             </a>
 
             {contact.address && (

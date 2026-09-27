@@ -1,6 +1,6 @@
 import { config, DAY_KEYS, DAY_LABELS } from '../config'
 import { useNow } from '../hooks/useNow'
-import { formatRanges, getOpenState } from '@barbearia/shared/lib/hours'
+import { formatRanges, getOpenState } from '@restaurante/shared/lib/hours'
 import { OpenBadge } from './OpenBadge'
 import { Reveal } from './Reveal'
 import { Section } from './Section'
@@ -20,7 +20,7 @@ export function Hours() {
       <Reveal>
         <div className="card overflow-hidden">
           <div className="flex items-center justify-between gap-4 border-b border-line p-5">
-            <p className="font-label text-xs uppercase tracking-[0.2em] text-muted">Atendimento</p>
+            <p className="font-label text-xs uppercase tracking-[0.2em] text-muted">Funcionamento</p>
             <OpenBadge withNext />
           </div>
 

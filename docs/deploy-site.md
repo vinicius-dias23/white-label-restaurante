@@ -1,9 +1,9 @@
-# Módulo 1 — Site: um domínio por barbearia
+# Módulo 1 — Site: um domínio por restaurante
 
-Objetivo: `barbeariadoze.com.br`, `studiomaxbarber.com.br`,
-`barbeariaana.com.br`... cada uma com a sua marca, saindo do mesmo código.
+Objetivo: `cantinabellanonna.com.br`, `sushikaze.com.br`,
+`botecodoze.com.br`... cada um com a sua marca, saindo do mesmo código.
 
-**Como funciona:** um build estático por barbearia, cada um com o config daquele
+**Como funciona:** um build estático por restaurante, cada um com o config daquele
 slug embutido. Nada é decidido em tempo de execução — [o porquê está na
 arquitetura](arquitetura.md#3-site-a-decisão-é-no-build).
 
@@ -15,28 +15,29 @@ arquitetura](arquitetura.md#3-site-a-decisão-é-no-build).
 executar. `site/src/config/index.ts` continua fazendo:
 
 ```ts
-import rawConfig from '../../../barbearia.config.json'
+import rawConfig from '../../../restaurante.config.json'
 ```
 
 Um caminho fixo, que sozinho faria todo build sair igual. O `site/vite.config.ts`
 intercepta esse import e o aponta para o tenant escolhido — **sem tocar em nenhum
 componente**.
 
-### Uma pasta por barbearia
+### Uma pasta por restaurante
 
-Cada barbearia passa a ter tudo num lugar só:
+Cada restaurante passa a ter tudo num lugar só:
 
 ```
-whatsapp/tenants/studio-max/
-  barbearia.config.json      ← já existe: marca, preços, equipe, horários
-  public/                    ← novo: as fotos desta barbearia
+whatsapp/tenants/sushi-kaze/
+  restaurante.config.json    ← marca, cardápio, ambientes, equipe, horários
+  public/                    ← as fotos deste restaurante
     fotos/
       hero.jpg
-      combo.jpg
+      omakase.jpg
+      salao.jpg
     logo.svg
 ```
 
-O que estiver em `public/` é copiado para a raiz do site daquela barbearia — no
+O que estiver em `public/` é copiado para a raiz do site daquele restaurante — no
 config você continua escrevendo `"imageUrl": "/fotos/hero.jpg"`, exatamente como
 no README do módulo.
 
@@ -55,10 +56,10 @@ import tailwindcss from '@tailwindcss/vite'
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 /**
- * Qual barbearia este build atende.
+ * Qual restaurante este build atende.
  *
- *   TENANT=studio-max npm run build   →  site/dist/studio-max/
- *   npm run dev                       →  barbearia.config.json da raiz (demo)
+ *   TENANT=sushi-kaze npm run build   →  site/dist/sushi-kaze/
+ *   npm run dev                       →  restaurante.config.json da raiz (demo)
  *
  * Sem TENANT, cai no config da raiz: é o modo de desenvolvimento, para mexer no
  * layout sem escolher cliente nenhum.
@@ -68,53 +69,94 @@ const TENANT = process.env.TENANT?.trim() ?? ''
 const tenantDir = TENANT ? resolve(REPO_ROOT, 'whatsapp/tenants', TENANT) : ''
 
 const configPath = TENANT
-  ? resolve(tenantDir, 'barbearia.config.json')
-  : resolve(REPO_ROOT, 'barbearia.config.json')
+  ? resolve(tenantDir, 'restaurante.config.json')
+  : resolve(REPO_ROOT, 'restaurante.config.json')
 
 if (TENANT && !existsSync(configPath)) {
   // Falhar aqui, alto e claro. O contrário é publicar o site de um cliente com
   // o conteúdo de demonstração e só descobrir pelo telefone.
   throw new Error(
     `TENANT="${TENANT}" não existe: ${configPath} não foi encontrado.\n` +
-      `Crie a pasta whatsapp/tenants/${TENANT}/ com o barbearia.config.json.`,
+      `Crie a pasta whatsapp/tenants/${TENANT}/ com o restaurante.config.json.`,
   )
 }
 
-/** As fotos da barbearia; sem a pasta, o build sai sem arquivos estáticos. */
-const publicDir = TENANT && existsSync(resolve(tenantDir, 'public'))
-  ? resolve(tenantDir, 'public')
-  : resolve(REPO_ROOT, 'site/public')
+/**
+ * As fotos do restaurante. A pasta do tenant ganha da de demonstração; se nenhuma
+ * das duas existir, o Vite recebe `false` e o build sai sem arquivos estáticos —
+ * apontar para um diretório inexistente faz o Vite reclamar a cada rebuild.
+ */
+const tenantPublic = TENANT ? resolve(tenantDir, 'public') : ''
+const demoPublic = resolve(REPO_ROOT, 'site/public')
+
+const publicDir = tenantPublic && existsSync(tenantPublic)
+  ? tenantPublic
+  : existsSync(demoPublic)
+    ? demoPublic
+    : (false as const)
+
+/**
+ * O config sem o que é do bot.
+ *
+ * A seção `whatsapp` inteira sai: o site nunca leu nada dela, e ela carrega os
+ * ~125 textos do atendimento e os telefones do painel do dono. De `team` sai o
+ * `phone` — o site usa nome, função, foto e Instagram, e mais nada.
+ *
+ * Isto não é otimização de bundle (embora encolha): sem isto, preencher o
+ * telefone do chef ou do gerente no estúdio publica o número dele na internet.
+ */
+function configPublico(caminho: string): Record<string, any> {
+  const { whatsapp: _bot, ...resto } = JSON.parse(readFileSync(caminho, 'utf8')) as Record<string, any>
+
+  if (Array.isArray(resto.team)) {
+    resto.team = resto.team.map((membro: Record<string, any>) => {
+      const { phone: _telefone, ...publico } = membro ?? {}
+      return publico
+    })
+  }
+
+  return resto
+}
 
 const raw = JSON.parse(readFileSync(configPath, 'utf8')) as Record<string, any>
-const nome: string = raw.brand?.name || 'Barbearia'
+const nome: string = raw.brand?.name || 'Restaurante'
 const tagline: string = raw.brand?.tagline || ''
-const corDeFundo: string = raw.colors?.background || '#0A0A0B'
+const corDeFundo: string = raw.colors?.background || '#140B0C'
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     {
-      // Redireciona o import do config para o da barbearia deste build.
+      // Redireciona o import do config para o do restaurante deste build, e tira
+      // do caminho o que não pode ser servido ao navegador.
+      //
       // Um plugin em vez de um alias porque o alias por regex reescreveria só o
       // trecho casado do caminho relativo, e o resultado seria um caminho torto.
-      name: 'barbearia-tenant-config',
+      name: 'restaurante-tenant-config',
       enforce: 'pre',
       resolveId(source) {
-        if (source !== configPath && source.endsWith('barbearia.config.json')) {
+        if (source !== configPath && source.endsWith('restaurante.config.json')) {
           return configPath
         }
         return null
+      },
+      load(id) {
+        if (id !== configPath) return null
+        // Devolvemos JSON, não JavaScript: o plugin `vite-json` roda depois deste
+        // e faz `JSON.parse` no que sair daqui — um `export default` aqui quebra
+        // o build com "expected value at line 1 column 1".
+        return JSON.stringify(configPublico(configPath), null, 2)
       },
     },
     {
       // Título e descrição no HTML entregue, não só depois do JavaScript rodar.
       // O main.tsx já ajusta o title no navegador; o Google e o WhatsApp leem o
       // HTML cru, antes disso.
-      name: 'barbearia-tenant-html',
+      name: 'restaurante-tenant-html',
       transformIndexHtml(html) {
         const titulo = tagline ? `${nome} — ${tagline}` : nome
-        const descricao = `${nome}. Veja serviços, preços e horários e agende pelo WhatsApp.`
+        const descricao = `${nome}. Veja o cardápio, os ambientes e os horários e reserve sua mesa pelo WhatsApp.`
         return html
           .replace(/<title>.*?<\/title>/, `<title>${titulo}</title>`)
           // A meta tag de descrição ocupa várias linhas no index.html —
@@ -132,12 +174,12 @@ export default defineConfig({
   ],
   publicDir,
   build: {
-    // Um diretório por barbearia: o build de uma nunca sobrescreve o da outra,
+    // Um diretório por restaurante: o build de um nunca sobrescreve o do outro,
     // e o CI pode rodar os cinco em paralelo.
     //
     // O build de demonstração vai para dist/_dev/ de propósito: com `emptyOutDir`
     // apontando para dist/, um `npm run build` sem TENANT apagaria o build de
-    // TODAS as barbearias antes de gerar o seu.
+    // TODOS os restaurantes antes de gerar o seu.
     outDir: TENANT ? `dist/${TENANT}` : 'dist/_dev',
     emptyOutDir: true,
   },
@@ -154,36 +196,44 @@ export default defineConfig({
 # a demonstração continua funcionando como antes
 npm run dev
 
-# o build de uma barbearia de verdade
+# o build de um restaurante de verdade
 cd site
-TENANT=barbearia-do-ze npm run build     # → site/dist/barbearia-do-ze/
-npx vite preview --outDir dist/barbearia-do-ze
+TENANT=cantina-bella-nonna npm run build     # → site/dist/cantina-bella-nonna/
+npx vite preview --outDir dist/cantina-bella-nonna
 ```
 
-Abra e confira **três coisas**: as cores são as da barbearia, o título da aba
-tem o nome dela, e o botão do WhatsApp leva para o número dela.
+Abra e confira **três coisas**: as cores são as do restaurante, o título da aba
+tem o nome dele, e o botão "Reservar mesa no WhatsApp" leva para o número dele.
+
+Confira também que o bundle não carrega o que é do bot: nenhum telefone da
+equipe e nenhum texto do atendimento.
+
+```bash
+grep -r "98888-7766" dist/cantina-bella-nonna/ || echo "✔ telefone da recepção fora do site"
+```
 
 E confira também o que deve falhar:
 
 ```bash
 TENANT=nao-existe npm run build
-# ✖ TENANT="nao-existe" não existe: .../whatsapp/tenants/nao-existe/barbearia.config.json
+# ✖ TENANT="nao-existe" não existe: .../whatsapp/tenants/nao-existe/restaurante.config.json
 ```
 
 ---
 
 ## 2. O manifesto de deploy
 
-**`deploy/tenants.json`** — quem existe, em que domínio, ligada ou não. Já está
-criado, com as cinco barbearias de exemplo:
+**`deploy/tenants.json`** — quem existe, em que domínio, ligado ou não. Já está
+criado, com os cinco restaurantes de exemplo (só a Cantina Bella Nonna ativa;
+os outros quatro esperam o conteúdo de verdade). Com todos ligados, fica assim:
 
 ```json
 [
-  { "slug": "barbearia-do-ze", "dominio": "barbeariadoze.com.br",   "ativo": true },
-  { "slug": "studio-max",      "dominio": "studiomaxbarber.com.br", "ativo": true },
-  { "slug": "barbearia-ana",   "dominio": "barbeariaana.com.br",    "ativo": true },
-  { "slug": "corte-nobre",     "dominio": "cortenobre.com.br",      "ativo": true },
-  { "slug": "navalha-fina",    "dominio": "navalhafina.com.br",     "ativo": true }
+  { "slug": "cantina-bella-nonna",    "dominio": "cantinabellanonna.com.br", "ativo": true },
+  { "slug": "sushi-kaze",             "dominio": "sushikaze.com.br",         "ativo": true },
+  { "slug": "boteco-do-ze",           "dominio": "botecodoze.com.br",        "ativo": true },
+  { "slug": "bistro-lume",            "dominio": "bistrolume.com.br",        "ativo": true },
+  { "slug": "churrascaria-fogo-alto", "dominio": "fogoalto.com.br",          "ativo": true }
 ]
 ```
 
@@ -196,11 +246,11 @@ PR. Da sua máquina:
 
 ```bash
 npm run deploy:check
-# ✔ 5 barbearia(s) no manifesto, 4 ativa(s) — tudo no lugar
+# ✔ 5 restaurante(s) no manifesto, 5 ativo(s) — tudo no lugar
 ```
 
-Ela recusa o deploy quando um slug ativo não tem `barbearia.config.json`, quando
-o JSON de uma delas está quebrado, quando o slug tem caractere inválido ou quando
+Ela recusa o deploy quando um slug ativo não tem `restaurante.config.json`, quando
+o JSON de um deles está quebrado, quando o slug tem caractere inválido ou quando
 dois domínios se repetem. Em resumo, é isto:
 
 ```bash
@@ -210,59 +260,59 @@ node -e '
   let erros = 0
   for (const t of tenants) {
     const dir = `whatsapp/tenants/${t.slug}`
-    if (!fs.existsSync(`${dir}/barbearia.config.json`)) {
-      console.error(`✖ ${t.slug}: falta ${dir}/barbearia.config.json`); erros++
+    if (!fs.existsSync(`${dir}/restaurante.config.json`)) {
+      console.error(`✖ ${t.slug}: falta ${dir}/restaurante.config.json`); erros++
     }
   }
   const dominios = tenants.map(t => t.dominio)
   const repetidos = dominios.filter((d, i) => dominios.indexOf(d) !== i)
   if (repetidos.length) { console.error(`✖ domínio repetido: ${repetidos}`); erros++ }
   if (erros) process.exit(1)
-  console.log(`✔ ${tenants.length} barbearia(s), tudo no lugar`)
+  console.log(`✔ ${tenants.length} restaurante(s), tudo no lugar`)
 '
 ```
 
 ---
 
-## 3. Publicar as cinco
+## 3. Publicar os cinco
 
 Escolha um dos dois caminhos. Para 5, o A. Para 50 ou mais, o B — e a migração
 de A para B não muda uma linha do build.
 
-### Caminho A — um projeto por barbearia (recomendado até ~20)
+### Caminho A — um projeto por restaurante (recomendado até ~20)
 
-Vale para **Cloudflare Pages**, **Vercel** ou **Netlify**. Cada barbearia vira um
-projeto, com o seu domínio no painel. Isolado: derrubar uma não encosta nas
-outras.
+Vale para **Cloudflare Pages**, **Vercel** ou **Netlify**. Cada restaurante vira um
+projeto, com o seu domínio no painel. Isolado: derrubar um não encosta nos
+outros.
 
-Criando um projeto (exemplo com Cloudflare Pages, uma vez por barbearia):
+Criando um projeto (exemplo com Cloudflare Pages, uma vez por restaurante):
 
 ```bash
-npx wrangler pages project create barbearia-studio-max --production-branch=master
+npx wrangler pages project create restaurante-sushi-kaze --production-branch=master
 ```
 
 E o deploy do build já pronto:
 
 ```bash
 cd site
-TENANT=studio-max npm run build
-npx wrangler pages deploy dist/studio-max --project-name=barbearia-studio-max
+TENANT=sushi-kaze npm run build
+npx wrangler pages deploy dist/sushi-kaze --project-name=restaurante-sushi-kaze
 ```
 
 **Domínio custom.** No painel do projeto → *Custom domains* → *Set up a domain*
-→ `studiomaxbarber.com.br`. O TLS é emitido sozinho em alguns minutos.
+→ `sushikaze.com.br`. O TLS é emitido sozinho em alguns minutos.
 
 No DNS do domínio (que costuma estar com o cliente, no Registro.br ou GoDaddy):
 
 | Tipo | Nome | Valor |
 |---|---|---|
-| `CNAME` | `www` | `barbearia-studio-max.pages.dev` |
-| `CNAME` (ou `ALIAS`/`ANAME`) | `@` | `barbearia-studio-max.pages.dev` |
+| `CNAME` | `www` | `restaurante-sushi-kaze.pages.dev` |
+| `CNAME` (ou `ALIAS`/`ANAME`) | `@` | `restaurante-sushi-kaze.pages.dev` |
 
 > `CNAME` na raiz (`@`) não é permitido no DNS clássico. Se o registrador não
 > oferecer `ALIAS`/`ANAME`, o caminho limpo é **transferir o DNS do domínio para
 > a Cloudflare** (só o DNS, o domínio continua do cliente) — que suporta o
-> achatamento de CNAME na raiz. Para 5 barbearias isso é meia hora de trabalho e
+> achatamento de CNAME na raiz. Para 5 restaurantes isso é meia hora de trabalho e
 > resolve o problema de vez.
 
 Configure também o redirecionamento de `www` para a raiz (ou o contrário) — o
@@ -274,20 +324,20 @@ dois como sites diferentes.
 Todos os builds vão para **o mesmo lugar**, cada um sob o prefixo do seu slug:
 
 ```
-_sites/barbearia-do-ze/index.html
-_sites/studio-max/index.html
-_sites/barbearia-ana/index.html
+_sites/cantina-bella-nonna/index.html
+_sites/sushi-kaze/index.html
+_sites/boteco-do-ze/index.html
 ```
 
 E um **Worker na frente** olha o `Host` e serve o prefixo certo. Isso, mais o
 Cloudflare for SaaS para emitir o certificado de cada domínio por API, é o que
-torna 100 barbearias administrável. Está detalhado em
+torna 100 restaurantes administrável. Está detalhado em
 [`escala-100.md`](escala-100.md#o-site-com-100-domínios) — comece pelo A, migre
 quando o painel começar a incomodar.
 
 ---
 
-## 4. CI: buildar e publicar todas
+## 4. CI: buildar e publicar todos
 
 **`.github/workflows/deploy-site.yml`** — já está no repositório:
 
@@ -306,7 +356,7 @@ on:
   workflow_dispatch:
     inputs:
       tenant:
-        description: 'Publicar só esta barbearia (vazio = todas)'
+        description: 'Publicar só este restaurante (vazio = todos)'
         required: false
 
 jobs:
@@ -317,6 +367,11 @@ jobs:
       tenants: ${{ steps.ler.outputs.tenants }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Conferir o manifesto
+        run: node deploy/verificar-tenants.mjs
       - id: ler
         run: |
           FILTRO='${{ github.event.inputs.tenant }}'
@@ -332,7 +387,7 @@ jobs:
     needs: listar
     runs-on: ubuntu-latest
     strategy:
-      # Uma barbearia com config quebrado não impede as outras de subirem.
+      # Um restaurante com config quebrado não impede os outros de subirem.
       fail-fast: false
       # Cinco de cada vez. Suba este número conforme a conta cresce.
       max-parallel: 5
@@ -346,13 +401,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build
-        run: npm run build -w @barbearia/site
+        run: npm run build -w @restaurante/site
         env:
           TENANT: ${{ matrix.tenant.slug }}
       - name: Publicar
         run: |
           npx wrangler pages deploy "site/dist/${{ matrix.tenant.slug }}" \
-            --project-name="barbearia-${{ matrix.tenant.slug }}" \
+            --project-name="restaurante-${{ matrix.tenant.slug }}" \
             --branch=master
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -361,14 +416,14 @@ jobs:
 
 Duas coisas que valem o cuidado:
 
-- **`fail-fast: false`.** Sem isso, um JSON com vírgula sobrando na barbearia A
-  cancela o deploy das outras quatro.
-- **`workflow_dispatch` com `tenant`.** É como você publica uma barbearia só,
-  pelo painel do GitHub, sem esperar as demais.
+- **`fail-fast: false`.** Sem isso, um JSON com vírgula sobrando no restaurante A
+  cancela o deploy dos outros quatro.
+- **`workflow_dispatch` com `tenant`.** É como você publica um restaurante só,
+  pelo painel do GitHub, sem esperar os demais.
 
-> Trocou o preço de uma barbearia? O push mexe em
-> `whatsapp/tenants/<slug>/barbearia.config.json`, o workflow dispara e **todas**
-> as ativas são reconstruídas. Com 5 isso é rápido e não incomoda. Com 100,
+> Trocou o preço de um restaurante? O push mexe em
+> `whatsapp/tenants/<slug>/restaurante.config.json`, o workflow dispara e **todos**
+> os ativos são reconstruídos. Com 5 isso é rápido e não incomoda. Com 100,
 > passe a buildar só o que mudou —
 > [`escala-100.md`](escala-100.md#builds-incrementais).
 
@@ -376,14 +431,14 @@ Duas coisas que valem o cuidado:
 
 ## 5. Depois de publicar
 
-Uma passada rápida por barbearia, sempre a mesma:
+Uma passada rápida por restaurante, sempre a mesma:
 
 | Confira | Como |
 |---|---|
-| Domínio abre com HTTPS | `curl -sI https://studiomaxbarber.com.br \| head -1` → `HTTP/2 200` |
-| É a barbearia certa | O nome no cabeçalho e as cores |
-| Título da aba | Nome da barbearia, não "Barbearia" |
-| Botão do WhatsApp | Abre uma conversa com **o número daquela barbearia** |
+| Domínio abre com HTTPS | `curl -sI https://sushikaze.com.br \| head -1` → `HTTP/2 200` |
+| É o restaurante certo | O nome no cabeçalho e as cores |
+| Título da aba | Nome do restaurante, não "Restaurante" |
+| Botão do WhatsApp | Abre uma conversa com **o número daquele restaurante**, já com a frase "Gostaria de reservar…" — e o "Reservar aqui" de cada ambiente, com o nome do ambiente na frase |
 | Fotos | Nenhum placeholder escuro (link quebrado) |
 | Celular | Abra de verdade num telefone: o hero ocupa a tela, o botão flutuante não fica atrás da barra de gestos |
 

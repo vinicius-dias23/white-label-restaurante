@@ -3,7 +3,7 @@ import {
   completedBetween,
   contactsWithoutVisitSince,
   markPastAsCompleted,
-} from '../db/repositories/appointments.js'
+} from '../db/repositories/reservations.js'
 import { contactsWithBirthday, findContactById, isWithinServiceWindow } from '../db/repositories/contacts.js'
 import { purgeOldMessageBodies } from '../db/repositories/messages.js'
 import { enqueue } from '../db/repositories/outbox.js'
@@ -17,9 +17,9 @@ import { isMessageEnabled } from './schedule.js'
 /**
  * Rotinas diárias.
  *
- * As três mensagens daqui — pós-atendimento, reativação e aniversário — nascem
- * DESLIGADAS, por `FEATURE_*` no `.env` e por `whatsapp.messages` no config da
- * barbearia. O código está pronto e testado; ligar é decisão de negócio, e
+ * As três mensagens daqui — pós-visita, reativação e aniversário — nascem
+ * DESLIGADAS, por `FEATURE_*` no `.env` e por `whatsapp.messages` no config do
+ * restaurante. O código está pronto e testado; ligar é decisão de negócio, e
  * depende do template correspondente estar aprovado na Meta.
  *
  * As duas últimas são de MARKETING: só vão para quem deu opt-in, têm limite por
@@ -36,7 +36,7 @@ export async function runDailyJobs(now: Date = new Date()): Promise<void> {
     try {
       await runForTenant(tenant, now)
     } catch (error) {
-      log.error('falha nas rotinas diárias da barbearia', {
+      log.error('falha nas rotinas diárias do restaurante', {
         tenant: tenant.slug,
         reason: errorMessage(error),
       })
@@ -49,35 +49,35 @@ export async function runDailyJobs(now: Date = new Date()): Promise<void> {
 }
 
 async function runForTenant(tenant: Tenant, now: Date): Promise<void> {
-  // Sem isto, um corte que já aconteceu continuaria "agendado" para sempre — e
-  // as réguas de pós-atendimento e reativação dependem desse estado.
+  // Sem isto, um jantar que já aconteceu continuaria "reservado" para sempre — e
+  // as réguas de pós-visita e reativação dependem desse estado.
   const completed = await markPastAsCompleted(tenant.id, now)
-  if (completed > 0) log.info('atendimentos marcados como concluídos', { tenant: tenant.slug, completed })
+  if (completed > 0) log.info('reservas marcadas como concluídas', { tenant: tenant.slug, completed })
 
   await jobPosAtendimento(tenant, now)
   await jobReativacao(tenant, now)
   await jobAniversario(tenant, now)
 }
 
-/** Agradecimento e pedido de avaliação, no dia seguinte ao atendimento. */
+/** Agradecimento e pedido de avaliação, no dia seguinte à visita. */
 async function jobPosAtendimento(tenant: Tenant, now: Date): Promise<void> {
   if (!isMessageEnabled('posAtendimento', tenant)) return
 
   if (!tenant.config.whatsapp.reviewUrl) {
-    log.warn('pós-atendimento ligado mas sem whatsapp.reviewUrl no config', { tenant: tenant.slug })
+    log.warn('pós-visita ligado mas sem whatsapp.reviewUrl no config', { tenant: tenant.slug })
   }
 
   const local = DateTime.fromJSDate(now, { zone: tenant.timezone })
   const yesterday = local.startOf('day').minus({ days: 1 })
 
-  const appointments = await completedBetween(
+  const reservations = await completedBetween(
     tenant.id,
     yesterday.toJSDate(),
     yesterday.plus({ days: 1 }).toJSDate(),
   )
 
-  for (const appointment of appointments) {
-    const contact = await findContactById(appointment.contactId)
+  for (const reservation of reservations) {
+    const contact = await findContactById(reservation.contactId)
     if (!contact || contact.optedOut) continue
 
     const payload = posAtendimentoMessage(
@@ -85,10 +85,11 @@ async function jobPosAtendimento(tenant: Tenant, now: Date): Promise<void> {
       tenant,
       {
         contactName: contact.name,
-        serviceName: appointment.serviceName,
-        barberName: appointment.barberName,
-        startsAt: appointment.startsAt,
-        appointmentId: appointment.id,
+        contactWaId: contact.waId,
+        partySize: reservation.partySize,
+        areaName: reservation.areaName,
+        startsAt: reservation.startsAt,
+        reservationId: reservation.id,
       },
       isWithinServiceWindow(contact, now),
     )
@@ -96,11 +97,11 @@ async function jobPosAtendimento(tenant: Tenant, now: Date): Promise<void> {
     await enqueue({
       tenantId: tenant.id,
       contactId: contact.id,
-      appointmentId: appointment.id,
+      reservationId: reservation.id,
       kind: 'posAtendimento',
       payload,
       scheduledFor: now,
-      dedupeKey: `${appointment.id}:posAtendimento`,
+      dedupeKey: `${reservation.id}:posAtendimento`,
     })
   }
 }
@@ -138,9 +139,9 @@ async function jobReativacao(tenant: Tenant, now: Date): Promise<void> {
  * Parabéns no dia.
  *
  * Só funciona para quem tem `contacts.birthday` preenchido — o menu do bot não
- * pergunta a data de nascimento (seria mais um passo no meio do agendamento).
+ * pergunta a data de nascimento (seria mais um passo no meio da reserva).
  * Preencha pela rota administrativa `PATCH /admin/contacts/:id` ou importando
- * de onde a barbearia já tem esse dado.
+ * de onde o restaurante já tem esse dado.
  */
 async function jobAniversario(tenant: Tenant, now: Date): Promise<void> {
   if (!isMessageEnabled('aniversario', tenant)) return

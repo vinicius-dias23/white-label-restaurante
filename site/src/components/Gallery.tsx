@@ -6,7 +6,7 @@ import { Section } from './Section'
 import { SmartImage } from './SmartImage'
 
 /**
- * Mosaico de trabalhos. Usa colunas CSS em vez de grade: com alturas
+ * Mosaico de fotos da casa: pratos, salão, mesa posta. Usa colunas CSS em vez de grade: com alturas
  * alternadas, a grade deixaria buracos no fim de cada linha, enquanto as
  * colunas encaixam as fotos como num feed. Cada toque abre o lightbox.
  */
@@ -18,7 +18,7 @@ export function Gallery() {
 
   return (
     <>
-      <Section id="galeria" kicker="Na cadeira" title="Nossos cortes">
+      <Section id="galeria" kicker="Da cozinha ao salão" title="Galeria">
         <div className="columns-2 gap-2.5 sm:columns-3 sm:gap-3 lg:columns-4">
           {gallery.map((image, index) => (
             <Reveal key={`${image.url}-${index}`} delay={Math.min(index, 8) * 50} className="mb-2.5 break-inside-avoid sm:mb-3">

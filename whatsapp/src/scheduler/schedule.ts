@@ -7,19 +7,20 @@ import type { Tenant } from '../tenants/types.js'
 import type { OutgoingMessage } from '../whatsapp/payloads.js'
 import {
   avisoCancelamento,
-  avisoNovoAgendamento,
+  avisoNovaReserva,
   lembrete24hMessage,
   lembrete2hMessage,
-  type AppointmentMessageData,
+  pedidoAprovacao,
+  type ReservationMessageData,
 } from './messages.js'
 
 /**
  * Quando cada mensagem programada deve sair.
  *
  * Uma mensagem só é enfileirada se estiver ligada NOS DOIS lugares: na trava
- * geral do `.env` (`FEATURE_*`) e no config da barbearia
+ * geral do `.env` (`FEATURE_*`) e no config do restaurante
  * (`whatsapp.messages.*`). A trava do `.env` é do operador do servidor; a do
- * config é da barbearia. Qualquer uma desligada impede o envio.
+ * config é do restaurante. Qualquer uma desligada impede o envio.
  */
 
 type ConfigurableKind = Exclude<OutboxKind, 'avisoDono'>
@@ -42,19 +43,20 @@ export function isInQuietHours(when: Date, tenant: Tenant): boolean {
 }
 
 /**
- * Enfileira os lembretes de um agendamento recém-criado.
+ * Enfileira os lembretes de uma reserva confirmada (na hora, ou quando o dono
+ * aprova o pedido de um grupo grande).
  *
  * A confirmação NÃO entra aqui: ela é a própria resposta ao toque em
- * "Confirmar" (`agendadoScreen`), sai na hora e já traz todos os detalhes.
+ * "Confirmar" (`reservadoScreen`), sai na hora e já traz todos os detalhes.
  * Repetir o mesmo texto pela fila só duplicava a mensagem na conversa.
  *
- * O que já passou da hora não é enfileirado: marcar às 23h para as 9h da manhã
- * seguinte não gera lembrete de 24h — ele já teria vencido.
+ * O que já passou da hora não é enfileirado: reservar às 11h para o almoço das
+ * 13h não gera lembrete de 24h — ele já teria vencido.
  */
-export async function scheduleAppointmentMessages(
+export async function scheduleReservationMessages(
   tenant: Tenant,
   contact: Contact,
-  data: AppointmentMessageData,
+  data: ReservationMessageData,
   now: Date = new Date(),
 ): Promise<OutboxKind[]> {
   const scheduled: OutboxKind[] = []
@@ -68,17 +70,17 @@ export async function scheduleAppointmentMessages(
     const created = await enqueue({
       tenantId: tenant.id,
       contactId: contact.id,
-      appointmentId: data.appointmentId,
+      reservationId: data.reservationId,
       kind,
       payload,
       scheduledFor: when,
-      dedupeKey: `${data.appointmentId}:${kind}`,
+      dedupeKey: `${data.reservationId}:${kind}`,
     })
     if (created) scheduled.push(kind)
   }
 
   const lembrete24h = respectQuietHours(new Date(data.startsAt.getTime() - 24 * 60 * 60 * 1000), tenant)
-  // Se o silêncio empurrou o lembrete para depois do próprio corte, não faz
+  // Se o silêncio empurrou o lembrete para depois da própria reserva, não faz
   // sentido enviar — o lembrete de 2h dá conta.
   if (lembrete24h < data.startsAt) {
     await add('lembrete24h', lembrete24h, lembrete24hMessage(to, tenant, data))
@@ -93,7 +95,7 @@ export async function scheduleAppointmentMessages(
 
   log.info('lembretes programados', {
     tenant: tenant.slug,
-    appointment: data.appointmentId,
+    reservation: data.reservationId,
     kinds: scheduled,
   })
 
@@ -101,7 +103,7 @@ export async function scheduleAppointmentMessages(
 }
 
 /**
- * Avisa o dono da barbearia.
+ * Avisa o dono do restaurante.
  *
  * ⚠️  Detalhe da Cloud API que vale entender: o servidor só pode mandar texto
  * livre para quem falou com o número nas últimas 24 horas — e isso vale também
@@ -124,7 +126,7 @@ export async function notifyOwner(
   if (!isWithinServiceWindow(owner, now)) {
     log.warn('aviso ao dono não enviado: fora da janela de 24h', {
       tenant: tenant.slug,
-      dica: 'peça ao dono para mandar "menu" para o número da barbearia',
+      dica: 'peça ao dono para mandar "menu" para o número do restaurante',
     })
     return false
   }
@@ -139,26 +141,43 @@ export async function notifyOwner(
   })
 }
 
-export async function notifyOwnerNewAppointment(
+export async function notifyOwnerNewReservation(
   tenant: Tenant,
-  data: AppointmentMessageData,
+  data: ReservationMessageData,
 ): Promise<void> {
   if (!tenant.ownerPhone) return
   await notifyOwner(
     tenant,
-    avisoNovoAgendamento(tenant.ownerPhone, tenant, data),
-    `${data.appointmentId}:avisoDono:novo`,
+    avisoNovaReserva(tenant.ownerPhone, tenant, data),
+    `${data.reservationId}:avisoDono:nova`,
+  )
+}
+
+/**
+ * O pedido de um grupo grande. Se o dono estiver fora da janela de 24h, o aviso
+ * não sai — mas o pedido continua lá, no "Pedidos pendentes" do menu dele, que
+ * é o primeiro item que aparece quando existe algum.
+ */
+export async function notifyOwnerApprovalRequest(
+  tenant: Tenant,
+  data: ReservationMessageData,
+): Promise<void> {
+  if (!tenant.ownerPhone) return
+  await notifyOwner(
+    tenant,
+    pedidoAprovacao(tenant.ownerPhone, tenant, data),
+    `${data.reservationId}:avisoDono:pedido`,
   )
 }
 
 export async function notifyOwnerCancellation(
   tenant: Tenant,
-  data: AppointmentMessageData,
+  data: ReservationMessageData,
 ): Promise<void> {
   if (!tenant.ownerPhone) return
   await notifyOwner(
     tenant,
     avisoCancelamento(tenant.ownerPhone, tenant, data),
-    `${data.appointmentId}:avisoDono:cancelado`,
+    `${data.reservationId}:avisoDono:cancelada`,
   )
 }

@@ -4,8 +4,8 @@ import type { TextoKey } from './textos.js'
  * Tipos da configuração white-label.
  *
  * `SiteConfig` é o formato final, já normalizado e com todos os campos
- * preenchidos. `SiteConfigInput` é o que o dono da barbearia escreve em
- * `barbearia.config.json`: tudo opcional, qualquer profundidade.
+ * preenchidos. `SiteConfigInput` é o que o dono do restaurante escreve em
+ * `restaurante.config.json`: tudo opcional, qualquer profundidade.
  */
 
 export interface ThemeColors {
@@ -56,30 +56,50 @@ export interface HeroConfig {
   ctaLabel: string
 }
 
-export interface Service {
+/** Um prato ou bebida em destaque. O cardápio completo fica no link `menu.url`. */
+export interface MenuItem {
   /**
-   * Identificador estável do serviço, a ponte com a linha do banco.
-   *
-   * Vazio = derivado do nome, como sempre foi. Preenchido, ele fixa a
-   * identidade: renomear passa a ser só renomear, sem criar um serviço novo e
-   * sem deixar os agendamentos antigos apontando para o item velho. O estúdio
-   * grava isso ao criar um serviço, e nunca mais mexe.
+   * Identificador estável do prato. Vazio = derivado do nome. O estúdio grava
+   * isso ao criar um item e nunca mais mexe, para renomear ser só renomear.
    */
   slug: string
   name: string
   description: string
-  /** Texto livre: "45", "R$ 45", "a partir de R$ 45". */
+  /** Agrupa no site e no WhatsApp: "Entradas", "Massas", "Sobremesas"... */
+  category: string
+  /** Texto livre: "R$ 68", "a partir de R$ 45", "R$ 120 (serve 2)". */
   price: string
-  /** Texto livre: "30 min", "1h". */
-  duration: string
-  /**
-   * Duração em minutos, usada pelo bot do WhatsApp para montar a agenda.
-   * 0 = deduz de `duration` e, se não der, usa `booking.defaultDurationMin`.
-   */
-  durationMin: number
   imageUrl: string
-  /** Marca o serviço como destaque (borda e selo na cor da marca). */
+  /** Marca o prato como destaque (borda e selo na cor da marca). */
   highlight: boolean
+}
+
+export interface MenuConfig {
+  /**
+   * Link do cardápio completo: PDF, site do restaurante, iFood... Vazio = o bot
+   * e o site mostram só os destaques.
+   */
+  url: string
+  /** Pratos em destaque. O WhatsApp mostra estes com preço, o site também. */
+  items: MenuItem[]
+}
+
+/**
+ * Um ambiente do restaurante: Salão, Varanda, Área externa, Mezanino.
+ *
+ * É a unidade da lotação. Cada ambiente aceita até `capacity` PESSOAS ao mesmo
+ * tempo, e o bot só oferece um horário se o grupo couber em algum ambiente.
+ */
+export interface Area {
+  /** Igual ao `slug` do prato: fixa a identidade do ambiente na agenda. */
+  slug: string
+  name: string
+  description: string
+  /** Quantas pessoas cabem ao mesmo tempo neste ambiente. */
+  capacity: number
+  imageUrl: string
+  /** `false` mantém o ambiente no site, mas tira ele das reservas do WhatsApp. */
+  bookable: boolean
 }
 
 export interface GalleryImage {
@@ -88,24 +108,23 @@ export interface GalleryImage {
 }
 
 export interface TeamMember {
-  /** Igual ao `slug` do serviço: fixa a identidade do barbeiro na agenda. */
+  /** Igual ao `slug` do prato: fixa a identidade do colaborador. */
   slug: string
   name: string
+  /** "Chef", "Sommelier", "Recepção"... */
   role: string
   photoUrl: string
   /** Usuário do Instagram, com ou sem @. */
   instagram: string
   /**
-   * WhatsApp do barbeiro. Preenchido, dá a ele o painel dele no bot: a agenda
-   * dele, os cortes dele, a folga dele. Vazio = ele só existe no site e na
-   * agenda, e escrever para a barbearia o atende como cliente.
+   * WhatsApp do colaborador. Preenchido, dá a ele o painel da recepção no bot:
+   * as reservas do dia, quem chegou, quem faltou. Vazio = ele só existe no site,
+   * e escrever para o restaurante o atende como cliente.
    *
    * Fica CRU aqui, como foi digitado — quem normaliza é o `tenant:sync`. E o
    * build do site remove este campo do bundle: é telefone pessoal.
    */
   phone: string
-  /** `false` mantém o barbeiro no site, mas tira ele da agenda do WhatsApp. */
-  bookable: boolean
 }
 
 export interface Testimonial {
@@ -125,6 +144,8 @@ export type TimeRange = [string, string]
 export type WeeklyHours = Record<DayKey, TimeRange[]>
 
 export interface Features {
+  menu: boolean
+  areas: boolean
   gallery: boolean
   team: boolean
   testimonials: boolean
@@ -132,25 +153,38 @@ export interface Features {
   map: boolean
 }
 
-/** Regras da agenda usadas pelo bot do WhatsApp. */
+/** Regras das reservas usadas pelo bot do WhatsApp. */
 export interface BookingConfig {
-  /** Passo da grade de horários, em minutos: 15 gera 09:00, 09:15, 09:30... */
+  /** Passo da grade de horários, em minutos: 30 gera 19:00, 19:30, 20:00... */
   slotStepMin: number
-  /** Antecedência mínima para agendar, em minutos. */
+  /** Antecedência mínima para reservar, em minutos. */
   leadTimeMin: number
-  /** Até quantos dias à frente o cliente pode marcar. */
+  /** Até quantos dias à frente o cliente pode reservar. */
   horizonDays: number
-  /** Folga entre um atendimento e o próximo, em minutos. */
-  bufferMin: number
-  /** Quantos agendamentos futuros um mesmo cliente pode ter ao mesmo tempo. */
+  /**
+   * Quanto tempo a mesa fica com o grupo, em minutos. É o que decide quando os
+   * lugares voltam para a lotação do ambiente.
+   */
+  durationMin: number
+  /**
+   * Última reserva: quantos minutos antes de fechar. Com a cozinha fechando às
+   * 23:00 e 60 aqui, o último horário oferecido é 22:00.
+   */
+  lastSeatingMin: number
+  /** Quantas reservas futuras um mesmo cliente pode ter ao mesmo tempo. */
   maxPerContact: number
   /** Até quantas horas antes o cliente ainda pode cancelar sozinho. */
   cancelDeadlineHours: number
-  /** Duração aplicada ao serviço que não informa a dele. */
-  defaultDurationMin: number
+  /** Maior grupo que o bot aceita. Acima disso, o cliente fala com um atendente. */
+  maxPartySize: number
+  /**
+   * Grupos MAIORES que isto não confirmam sozinhos: a reserva fica pendente e o
+   * dono aprova ou recusa pelo WhatsApp. 0 = tudo confirma na hora.
+   */
+  approvalAbovePartySize: number
 }
 
-/** Liga e desliga cada mensagem programada, por barbearia. */
+/** Liga e desliga cada mensagem programada, por restaurante. */
 export interface ScheduledMessages {
   lembrete24h: boolean
   lembrete2h: boolean
@@ -162,14 +196,14 @@ export interface ScheduledMessages {
 /**
  * O que o botão de cada opção do painel do dono faz.
  *
- * Estavam fixos no código, e são decisão da barbearia: a que horas começa a
- * tarde de quem abre às 7h não é a mesma de quem abre ao meio-dia.
+ * Estavam fixos no código, e são decisão do restaurante: a que horas começa o
+ * jantar de quem abre para o café da manhã não é a mesma de quem só abre à noite.
  */
 export interface OwnerPanelConfig {
   /**
-   * Os WhatsApps que abrem o painel do dono. Mais de um porque barbearia tem
-   * sócio e gerente; o PRIMEIRO é quem recebe os avisos automáticos (novo
-   * agendamento, cancelamento, cliente pedindo atendente).
+   * Os WhatsApps que abrem o painel do dono. Mais de um porque restaurante tem
+   * sócio e gerente; o PRIMEIRO é quem recebe os avisos automáticos (nova
+   * reserva, pedido de aprovação, cancelamento, cliente pedindo atendente).
    *
    * Preenchido, vence o `TENANT_OWNER_PHONE` do .env. Vazio, o número que já
    * está no banco continua valendo — publicar um config sem isto não tira o
@@ -178,19 +212,19 @@ export interface OwnerPanelConfig {
   phones: string[]
   /** Quanto tempo o bot fica calado no botão "Pausar o bot". */
   pauseMinutes: number
-  /** Hora em que a tarde começa, no bloqueio rápido. A manhã vai de 0 até aqui. */
+  /** Hora em que o almoço começa, no bloqueio rápido. Antes disso é manhã. */
   afternoonStartHour: number
-  /** Hora em que a noite começa, no bloqueio rápido. */
+  /** Hora em que o jantar começa, no bloqueio rápido. */
   eveningStartHour: number
 }
 
 /** Textos e regras do atendimento no WhatsApp. */
 export interface WhatsAppConfig {
-  /** Primeira linha do menu. Vazio = gerada com o nome da barbearia. */
+  /** Primeira linha do menu. Vazio = gerada com o nome do restaurante. */
   greeting: string
   /** Resposta pronta do botão "Formas de pagamento". */
   paymentMethods: string
-  /** Link de avaliação no Google. Vazio desliga o pós-atendimento. */
+  /** Link de avaliação no Google. Vazio desliga o pós-visita. */
   reviewUrl: string
   /** Quanto tempo o bot fica calado depois de chamar um atendente. */
   handoffMinutes: number
@@ -200,7 +234,7 @@ export interface WhatsAppConfig {
   reativacaoDias: number
   messages: ScheduledMessages
   /**
-   * Textos do bot que esta barbearia sobrescreve. Chave ausente = o padrão do
+   * Textos do bot que este restaurante sobrescreve. Chave ausente = o padrão do
    * catálogo em `config/textos.ts`. Editável pelo estúdio (`textos:studio`).
    */
   textos: Partial<Record<TextoKey, string>>
@@ -212,7 +246,8 @@ export interface SiteConfig {
   colors: ThemeColors
   contact: ContactConfig & { social: SocialLinks }
   hero: HeroConfig
-  services: Service[]
+  menu: MenuConfig
+  areas: Area[]
   gallery: GalleryImage[]
   team: TeamMember[]
   testimonials: Testimonial[]

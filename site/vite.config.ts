@@ -8,10 +8,10 @@ import tailwindcss from '@tailwindcss/vite'
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 /**
- * Qual barbearia este build atende.
+ * Qual restaurante este build atende.
  *
- *   TENANT=studio-max npm run build   →  site/dist/studio-max/
- *   npm run dev                       →  barbearia.config.json da raiz (demo)
+ *   TENANT=sushi-kaze npm run build   →  site/dist/sushi-kaze/
+ *   npm run dev                       →  restaurante.config.json da raiz (demo)
  *
  * Sem TENANT, cai no config da raiz: é o modo de desenvolvimento, para mexer no
  * layout sem escolher cliente nenhum.
@@ -21,20 +21,20 @@ const TENANT = process.env.TENANT?.trim() ?? ''
 const tenantDir = TENANT ? resolve(REPO_ROOT, 'whatsapp/tenants', TENANT) : ''
 
 const configPath = TENANT
-  ? resolve(tenantDir, 'barbearia.config.json')
-  : resolve(REPO_ROOT, 'barbearia.config.json')
+  ? resolve(tenantDir, 'restaurante.config.json')
+  : resolve(REPO_ROOT, 'restaurante.config.json')
 
 if (TENANT && !existsSync(configPath)) {
   // Falhar aqui, alto e claro. O contrário é publicar o site de um cliente com
   // o conteúdo de demonstração e só descobrir pelo telefone.
   throw new Error(
     `TENANT="${TENANT}" não existe: ${configPath} não foi encontrado.\n` +
-      `Crie a pasta whatsapp/tenants/${TENANT}/ com o barbearia.config.json.`,
+      `Crie a pasta whatsapp/tenants/${TENANT}/ com o restaurante.config.json.`,
   )
 }
 
 /**
- * As fotos da barbearia. A pasta do tenant ganha da de demonstração; se nenhuma
+ * As fotos do restaurante. A pasta do tenant ganha da de demonstração; se nenhuma
  * das duas existir, o Vite recebe `false` e o build sai sem arquivos estáticos —
  * apontar para um diretório inexistente faz o Vite reclamar a cada rebuild.
  */
@@ -55,7 +55,7 @@ const publicDir = tenantPublic && existsSync(tenantPublic)
  * `phone` — o site usa nome, função, foto e Instagram, e mais nada.
  *
  * Isto não é otimização de bundle (embora encolha): sem isto, preencher o
- * telefone de um barbeiro no estúdio publica o número dele na internet.
+ * telefone do chef ou do gerente no estúdio publica o número dele na internet.
  */
 function configPublico(caminho: string): Record<string, any> {
   const { whatsapp: _bot, ...resto } = JSON.parse(readFileSync(caminho, 'utf8')) as Record<string, any>
@@ -71,24 +71,24 @@ function configPublico(caminho: string): Record<string, any> {
 }
 
 const raw = JSON.parse(readFileSync(configPath, 'utf8')) as Record<string, any>
-const nome: string = raw.brand?.name || 'Barbearia'
+const nome: string = raw.brand?.name || 'Restaurante'
 const tagline: string = raw.brand?.tagline || ''
-const corDeFundo: string = raw.colors?.background || '#0A0A0B'
+const corDeFundo: string = raw.colors?.background || '#140B0C'
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     {
-      // Redireciona o import do config para o da barbearia deste build, e tira
+      // Redireciona o import do config para o do restaurante deste build, e tira
       // do caminho o que não pode ser servido ao navegador.
       //
       // Um plugin em vez de um alias porque o alias por regex reescreveria só o
       // trecho casado do caminho relativo, e o resultado seria um caminho torto.
-      name: 'barbearia-tenant-config',
+      name: 'restaurante-tenant-config',
       enforce: 'pre',
       resolveId(source) {
-        if (source !== configPath && source.endsWith('barbearia.config.json')) {
+        if (source !== configPath && source.endsWith('restaurante.config.json')) {
           return configPath
         }
         return null
@@ -105,10 +105,10 @@ export default defineConfig({
       // Título e descrição no HTML entregue, não só depois do JavaScript rodar.
       // O main.tsx já ajusta o title no navegador; o Google e o WhatsApp leem o
       // HTML cru, antes disso.
-      name: 'barbearia-tenant-html',
+      name: 'restaurante-tenant-html',
       transformIndexHtml(html) {
         const titulo = tagline ? `${nome} — ${tagline}` : nome
-        const descricao = `${nome}. Veja serviços, preços e horários e agende pelo WhatsApp.`
+        const descricao = `${nome}. Veja o cardápio, os ambientes e os horários e reserve sua mesa pelo WhatsApp.`
         return html
           .replace(/<title>.*?<\/title>/, `<title>${titulo}</title>`)
           // A meta tag de descrição ocupa várias linhas no index.html —
@@ -126,12 +126,12 @@ export default defineConfig({
   ],
   publicDir,
   build: {
-    // Um diretório por barbearia: o build de uma nunca sobrescreve o da outra,
+    // Um diretório por restaurante: o build de um nunca sobrescreve o do outro,
     // e o CI pode rodar os cinco em paralelo.
     //
     // O build de demonstração vai para dist/_dev/ de propósito: com `emptyOutDir`
     // apontando para dist/, um `npm run build` sem TENANT apagaria o build de
-    // TODAS as barbearias antes de gerar o seu.
+    // TODOS os restaurantes antes de gerar o seu.
     outDir: TENANT ? `dist/${TENANT}` : 'dist/_dev',
     emptyOutDir: true,
   },

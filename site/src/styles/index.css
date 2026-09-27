@@ -9,28 +9,28 @@
 @import '@fontsource-variable/inter/wght.css';
 
 /*
- * Valores iniciais do tema: a paleta padrão (preto + branco + azul escuro).
- * `applyTheme()` sobrescreve estas variáveis com as cores do
- * `barbearia.config.json` antes do primeiro render.
+ * Valores iniciais do tema: a paleta padrão (fundo quase preto puxado para o
+ * vinho + bordô). `applyTheme()` sobrescreve estas variáveis com as cores do
+ * `restaurante.config.json` antes do primeiro render.
  */
 :root {
-  --bb-bg: #0a0a0b;
-  --bb-surface: #141417;
-  --bb-surface-2: #1e1e22;
-  --bb-text: #f5f5f4;
-  --bb-muted: #a1a1aa;
-  --bb-brand: #16345b;
-  --bb-brand-solid: #16345b;
-  --bb-brand-accent: #5b86bd;
-  --bb-brand-soft: rgb(91 134 189 / 0.14);
-  --bb-brand-glow: rgb(91 134 189 / 0.35);
-  --bb-on-brand: #f5f5f4;
-  --bb-border: rgb(245 245 244 / 0.1);
-  --bb-border-strong: rgb(245 245 244 / 0.2);
-  --bb-scrim: rgb(10 10 11 / 0.72);
-  --bb-overlay-top: rgb(10 10 11 / 0.25);
-  --bb-overlay-bottom: #0a0a0b;
-  --bb-hover: #202024;
+  --bb-bg: #140b0c;
+  --bb-surface: #1f1214;
+  --bb-surface-2: #2e2223;
+  --bb-text: #f7f1ee;
+  --bb-muted: #b8a9a6;
+  --bb-brand: #8e1b24;
+  --bb-brand-solid: #8e1b24;
+  --bb-brand-accent: #b66b71;
+  --bb-brand-soft: rgb(182 107 113 / 0.14);
+  --bb-brand-glow: rgb(182 107 113 / 0.35);
+  --bb-on-brand: #f7f1ee;
+  --bb-border: rgb(247 241 238 / 0.1);
+  --bb-border-strong: rgb(247 241 238 / 0.2);
+  --bb-scrim: rgb(20 11 12 / 0.72);
+  --bb-overlay-top: rgb(20 11 12 / 0.25);
+  --bb-overlay-bottom: #140b0c;
+  --bb-hover: #2c2022;
 
   /* Altura do cabeçalho fixo — usada no offset das âncoras. */
   --bb-header: 4rem;

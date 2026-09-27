@@ -1,11 +1,11 @@
-import type { SiteConfig } from '@barbearia/shared/config'
-import { TEXTOS, type TextoKey } from '@barbearia/shared/config/textos'
-import { renderTexto } from '@barbearia/shared/lib/texto'
+import type { SiteConfig } from '@restaurante/shared/config'
+import { TEXTOS, type TextoKey } from '@restaurante/shared/config/textos'
+import { renderTexto } from '@restaurante/shared/lib/texto'
 
 /**
  * O acessor dos textos do bot.
  *
- * `t('cliente.menu.corpo', { marca })` devolve o texto da barbearia quando ela
+ * `t('cliente.menu.corpo', { marca })` devolve o texto do restaurante quando ele
  * customizou, e o padrão do catálogo quando não. Nenhuma frase visível ao
  * cliente ou ao dono deve nascer fora daqui — o teste de completude reprova.
  */

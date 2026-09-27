@@ -43,7 +43,7 @@ export interface OpenState {
   todayRanges: TimeRange[]
 }
 
-/** A barbearia está aberta neste instante? */
+/** O restaurante está aberto neste instante? */
 export function getOpenState(hours: WeeklyHours, now: Date = new Date()): OpenState {
   const today = dayKeyOf(now)
   const minutes = now.getHours() * 60 + now.getMinutes()

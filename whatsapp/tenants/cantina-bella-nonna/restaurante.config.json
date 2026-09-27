@@ -1,0 +1,275 @@
+{
+  "brand": {
+    "name": "Cantina Bella Nonna",
+    "tagline": "Cozinha italiana de família desde 1987",
+    "logoUrl": "/logo.svg",
+    "faviconUrl": ""
+  },
+  "colors": {
+    "background": "#140B0C",
+    "surface": "#1F1214",
+    "text": "#F7F1EE",
+    "muted": "#B8A9A6",
+    "brand": "#8E1B24",
+    "brandAccent": ""
+  },
+  "contact": {
+    "whatsapp": "(11) 91234-5678",
+    "phone": "(11) 3456-7890",
+    "email": "reservas@cantinabellanonna.com.br",
+    "address": "Rua 13 de Maio, 480 — Bela Vista, São Paulo - SP",
+    "mapsUrl": "",
+    "social": {
+      "instagram": "@cantinabellanonna",
+      "facebook": "https://facebook.com/cantinabellanonna",
+      "tiktok": ""
+    }
+  },
+  "hero": {
+    "imageUrl": "/fotos/hero.jpg",
+    "headline": "Sua mesa\nestá esperando",
+    "subheadline": "Massa fresca, forno a lenha e o vinho da casa no coração do Bixiga",
+    "ctaLabel": "Reservar mesa no WhatsApp"
+  },
+  "menu": {
+    "url": "https://cantinabellanonna.com.br/cardapio.pdf",
+    "items": [
+      {
+        "slug": "fettuccine-alla-nonna",
+        "name": "Fettuccine alla Nonna",
+        "description": "Massa fresca, ragù de costela cozido por 8 horas",
+        "category": "Massas",
+        "price": "R$ 68",
+        "imageUrl": "/fotos/fettuccine.jpg",
+        "highlight": true
+      },
+      {
+        "slug": "ravioli-de-burrata",
+        "name": "Ravioli de Burrata",
+        "description": "Molho de tomate San Marzano e manjericão",
+        "category": "Massas",
+        "price": "R$ 72",
+        "imageUrl": "/fotos/ravioli.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "pizza-margherita",
+        "name": "Pizza Margherita",
+        "description": "Forno a lenha, mozzarella de búfala",
+        "category": "Pizzas",
+        "price": "R$ 59",
+        "imageUrl": "/fotos/margherita.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "file-ao-barolo",
+        "name": "Filé ao Barolo",
+        "description": "Redução de vinho tinto e risoto de parmesão",
+        "category": "Carnes",
+        "price": "R$ 98",
+        "imageUrl": "/fotos/file.jpg",
+        "highlight": true
+      },
+      {
+        "slug": "tiramisu-da-casa",
+        "name": "Tiramisù da Casa",
+        "description": "Receita da nonna, com café coado na hora",
+        "category": "Sobremesas",
+        "price": "R$ 32",
+        "imageUrl": "/fotos/tiramisu.jpg",
+        "highlight": false
+      },
+      {
+        "slug": "vinho-da-casa",
+        "name": "Vinho da Casa",
+        "description": "Taça ou garrafa — pergunte pela uva do mês",
+        "category": "Bebidas",
+        "price": "a partir de R$ 29",
+        "imageUrl": "/fotos/vinho.jpg",
+        "highlight": false
+      }
+    ]
+  },
+  "areas": [
+    {
+      "slug": "salao",
+      "name": "Salão",
+      "description": "Climatizado, perto do forno a lenha",
+      "capacity": 40,
+      "imageUrl": "/fotos/salao.jpg",
+      "bookable": true
+    },
+    {
+      "slug": "varanda",
+      "name": "Varanda",
+      "description": "Ao ar livre, ótima para o fim de tarde",
+      "capacity": 20,
+      "imageUrl": "/fotos/varanda.jpg",
+      "bookable": true
+    }
+  ],
+  "gallery": [
+    {
+      "url": "/fotos/galeria-1.jpg",
+      "alt": "Mesa posta para o jantar"
+    },
+    {
+      "url": "/fotos/galeria-2.jpg",
+      "alt": "Salão com o forno a lenha"
+    },
+    {
+      "url": "/fotos/galeria-3.jpg",
+      "alt": "Fettuccine alla Nonna"
+    },
+    {
+      "url": "/fotos/galeria-4.jpg",
+      "alt": "Adega da casa"
+    }
+  ],
+  "team": [
+    {
+      "slug": "giulia",
+      "name": "Giulia",
+      "role": "Chef",
+      "photoUrl": "/fotos/giulia.jpg",
+      "instagram": "@chef.giulia",
+      "phone": ""
+    },
+    {
+      "slug": "marco",
+      "name": "Marco",
+      "role": "Sommelier",
+      "photoUrl": "/fotos/marco.jpg",
+      "instagram": "",
+      "phone": ""
+    },
+    {
+      "slug": "renata",
+      "name": "Renata",
+      "role": "Recepção",
+      "photoUrl": "/fotos/renata.jpg",
+      "instagram": "",
+      "phone": "(11) 98888-7766"
+    }
+  ],
+  "testimonials": [
+    {
+      "name": "Marina L.",
+      "rating": 5,
+      "text": "Reservei pelo WhatsApp em um minuto e a mesa estava pronta quando chegamos.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Carlos P.",
+      "rating": 5,
+      "text": "O fettuccine é o melhor da cidade. Voltamos toda sexta.",
+      "photoUrl": ""
+    },
+    {
+      "name": "Júlia R.",
+      "rating": 5,
+      "text": "Comemoramos o aniversário da minha mãe na varanda. Atendimento impecável.",
+      "photoUrl": ""
+    }
+  ],
+  "hours": {
+    "mon": [],
+    "tue": [
+      [
+        "18:00",
+        "23:00"
+      ]
+    ],
+    "wed": [
+      [
+        "18:00",
+        "23:00"
+      ]
+    ],
+    "thu": [
+      [
+        "18:00",
+        "23:00"
+      ]
+    ],
+    "fri": [
+      [
+        "12:00",
+        "15:00"
+      ],
+      [
+        "18:00",
+        "23:30"
+      ]
+    ],
+    "sat": [
+      [
+        "12:00",
+        "16:00"
+      ],
+      [
+        "18:00",
+        "23:30"
+      ]
+    ],
+    "sun": [
+      [
+        "12:00",
+        "17:00"
+      ]
+    ]
+  },
+  "features": {
+    "menu": true,
+    "areas": true,
+    "gallery": true,
+    "team": true,
+    "testimonials": true,
+    "hours": true,
+    "map": true
+  },
+  "booking": {
+    "slotStepMin": 30,
+    "leadTimeMin": 60,
+    "horizonDays": 30,
+    "durationMin": 120,
+    "lastSeatingMin": 60,
+    "maxPerContact": 2,
+    "cancelDeadlineHours": 2,
+    "maxPartySize": 20,
+    "approvalAbovePartySize": 8
+  },
+  "whatsapp": {
+    "greeting": "",
+    "paymentMethods": "Pix, dinheiro, débito, crédito e vale-refeição",
+    "reviewUrl": "https://g.page/r/cantinabellanonna/review",
+    "handoffMinutes": 30,
+    "quietHours": [
+      "23:30",
+      "09:00"
+    ],
+    "reativacaoDias": 45,
+    "messages": {
+      "lembrete24h": true,
+      "lembrete2h": true,
+      "posAtendimento": true,
+      "reativacao": false,
+      "aniversario": false
+    },
+    "owner": {
+      "phones": [
+        "(11) 91234-5678"
+      ],
+      "pauseMinutes": 60,
+      "afternoonStartHour": 11,
+      "eveningStartHour": 17
+    },
+    "textos": {
+      "cliente.menu.saudacao": "Buonasera! Aqui é a {marca} 🍷",
+      "cliente.reservado.endereco": "\n📍 {endereco}\nEstacionamento conveniado na esquina.",
+      "dono.menu.titulo": "*{marca} — painel da casa*{status}",
+      "cliente.cancelado.corpo": "Reserva cancelada. A mesa já voltou para outro grupo — quando quiser, é só chamar!",
+      "rotulos.botao.reservar": "Reservar"
+    }
+  }
+}

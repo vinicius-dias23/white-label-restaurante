@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { config } from '../config'
+import { config, hasMenu } from '../config'
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll'
 import { useScrolledPast } from '../hooks/useScrollProgress'
-import { bookingMessage, whatsappUrl } from '@barbearia/shared/lib/whatsapp'
+import { bookingMessage, whatsappUrl } from '@restaurante/shared/lib/whatsapp'
 import { CloseIcon, MenuIcon, WhatsAppIcon } from './Icons'
 import { Logo } from './Logo'
 
@@ -12,9 +12,10 @@ interface NavItem {
 }
 
 function navItems(): NavItem[] {
-  const { features, services, gallery, team } = config
+  const { features, areas, gallery, team } = config
   const items: NavItem[] = []
-  if (services.length) items.push({ href: '#servicos', label: 'Serviços' })
+  if (hasMenu()) items.push({ href: '#cardapio', label: 'Cardápio' })
+  if (features.areas && areas.length) items.push({ href: '#ambientes', label: 'Ambientes' })
   if (features.gallery && gallery.length) items.push({ href: '#galeria', label: 'Galeria' })
   if (features.team && team.length) items.push({ href: '#equipe', label: 'Equipe' })
   if (features.hours) items.push({ href: '#horarios', label: 'Horários' })
@@ -77,8 +78,8 @@ export function Header() {
               className="btn btn-brand h-11 min-h-11 px-4 text-xs sm:px-5"
             >
               <WhatsAppIcon className="size-[1.125rem]" />
-              <span className="hidden sm:inline">Agendar</span>
-              <span className="sr-only sm:hidden">Agendar no WhatsApp</span>
+              <span className="hidden sm:inline">Reservar</span>
+              <span className="sr-only sm:hidden">Reservar mesa no WhatsApp</span>
             </a>
 
             <button

@@ -2,9 +2,9 @@
 
 Da criação da conta na Meta até o bot respondendo no seu celular.
 
-**Leia isto antes de qualquer coisa:** não comece pelo número da barbearia.
+**Leia isto antes de qualquer coisa:** não comece pelo número do restaurante.
 A Meta dá um **número de teste grátis**, e com ele você monta e testa o bot
-inteiro — menu, agendamento, cancelamento, lembretes — sem gastar nada e sem
+inteiro — menu, reserva, cancelamento, lembretes — sem gastar nada e sem
 arriscar o atendimento que já funciona. Só depois de tudo rodando é que você
 migra o seu número. As seções 1 a 9 usam o número de teste; a seção 10 trata do
 seu.
@@ -14,7 +14,7 @@ Tempo: **1 a 2 horas** até o primeiro "oi" respondido.
 > 📁 **Todos os comandos deste guia rodam de dentro de `whatsapp/`.** É o módulo
 > da automação: `cd whatsapp` depois do `npm install` na raiz e siga daqui.
 > Da raiz do repositório, o mesmo comando vira
-> `npm run <script> -w @barbearia/whatsapp`.
+> `npm run <script> -w @restaurante/whatsapp`.
 
 ---
 
@@ -40,28 +40,29 @@ Cliente no WhatsApp
         │
         ▼
    Meta (Cloud API)  ──── webhook ───▶  seu servidor  ──▶  PostgreSQL
-        ▲                                    │              (agenda,
+        ▲                                    │              (reservas,
         └──────── resposta ──────────────────┘             conversas)
 ```
 
-O cliente manda mensagem para o número da barbearia. A Meta entrega no seu
-servidor, o bot decide o que responder e devolve pela mesma API. A agenda e o
-estado da conversa ficam no seu banco — nada mora na Meta.
+O cliente manda mensagem para o número do restaurante. A Meta entrega no seu
+servidor, o bot decide o que responder e devolve pela mesma API. As reservas, a
+lotação de cada ambiente e o estado da conversa ficam no seu banco — nada mora na Meta.
 
 **O que o cliente vê:**
 
 ```
-Menu ─┬─ Agendar horário → serviço → barbeiro → dia → horário → confirmar
-      ├─ Meus agendamentos → remarcar / cancelar
-      ├─ Serviços e preços
+Menu ─┬─ Reservar mesa → pessoas → ambiente → dia → horário → confirmar
+      ├─ Minhas reservas → remarcar / cancelar
+      ├─ Cardápio
       ├─ Horário de funcionamento
-      ├─ Onde ficamos
+      ├─ Endereço
       ├─ Formas de pagamento
       └─ Falar com atendente
 ```
 
-Só botões. O bot nunca tenta interpretar texto livre — qualquer frase devolve o
-menu.
+Só botões. O bot não tenta interpretar texto livre — fora umas poucas palavras
+(`menu`, `reservar`, `cardápio`, `sair`) e a frase que o botão do site já deixa
+escrita, qualquer frase devolve o menu.
 
 **O que você paga:** nada pela API em si (a Cloud API não tem mensalidade) e
 nada por servidor enquanto testar no seu computador. As mensagens têm custo, e
@@ -85,7 +86,7 @@ Baixe o projeto e instale:
 
 ```bash
 git clone <url-do-repositorio>
-cd white-label-barbearia
+cd white-label-restaurante
 npm install
 ```
 
@@ -141,7 +142,7 @@ São três coisas diferentes, e é normal se perder entre elas:
 1. Entre em [business.facebook.com](https://business.facebook.com) com sua conta
    do Facebook.
 2. **Criar portfólio empresarial** (ou "Criar conta").
-3. Preencha: nome do negócio (ex.: `Barbearia do Zé`), seu nome e um e-mail.
+3. Preencha: nome do negócio (ex.: `Cantina Bella Nonna`), seu nome e um e-mail.
 
 > Sem CNPJ? Sem problema por enquanto. O portfólio é criado assim mesmo. A
 > verificação — que pede documento — só é necessária mais para a frente, e a
@@ -152,7 +153,7 @@ São três coisas diferentes, e é normal se perder entre elas:
 1. Entre em [developers.facebook.com](https://developers.facebook.com) → **Meus
    aplicativos** → **Criar aplicativo**.
 2. Caso de uso: **Outro** → tipo: **Empresa**.
-3. Nome (ex.: `Barbearia Bot`) e vincule ao portfólio que você acabou de criar.
+3. Nome (ex.: `Restaurante Bot`) e vincule ao portfólio que você acabou de criar.
 4. No painel do app, procure **WhatsApp** na lista de produtos → **Configurar**.
 
 ### 3.3 Guardar as duas primeiras variáveis
@@ -243,7 +244,7 @@ META_VERIFY_TOKEN=        # o openssl rand -hex 32 que você acabou de gerar
 APP_ENCRYPTION_KEY=       # o openssl rand -base64 32
 ADMIN_API_TOKEN=          # o outro openssl rand -hex 32
 
-TENANT_SLUG=barbearia-do-ze
+TENANT_SLUG=cantina-bella-nonna
 TENANT_PHONE_NUMBER_ID=   # da seção 4.1
 TENANT_WABA_ID=           # da seção 4.1
 TENANT_ACCESS_TOKEN=      # da seção 4.1
@@ -263,31 +264,32 @@ npm run db:migrate
 ✔ 1 migration(s) aplicada(s).
 ```
 
-### 5.4 Cadastrar a barbearia
+### 5.4 Cadastrar o restaurante
 
-O bot lê serviços, preços, equipe e horários de um arquivo por barbearia:
+O bot lê cardápio, ambientes, equipe e horários de um arquivo por restaurante.
 
-O projeto já vem com uma de exemplo, `tenants/barbearia-do-ze/`, com todos os
-campos preenchidos. Renomeie a pasta para o slug da sua barbearia e edite o
+O projeto já vem com um de exemplo, `tenants/cantina-bella-nonna/`, com todos os
+campos preenchidos. Renomeie a pasta para o slug do seu restaurante e edite o
 conteúdo:
 
 ```bash
-mv tenants/barbearia-do-ze tenants/<seu-slug>
+mv tenants/cantina-bella-nonna tenants/<seu-slug>
 ```
 
 > 🔴 **O nome da pasta precisa ser idêntico ao `TENANT_SLUG` do `.env`.** Se um
-> for `barbearia-do-ze` e o outro `barbearia_do_ze`, o comando abaixo avisa
-> `⚠ não cadastrada` e segue em frente — a barbearia simplesmente não entra no
-> banco, e o bot não responde nada depois.
+> for `cantina-bella-nonna` e o outro `cantina_bella_nonna`, o comando abaixo
+> avisa `⚠ não cadastrado` e segue em frente — o restaurante simplesmente não
+> entra no banco, e o bot não responde nada depois.
 
 > 💡 **Vai renomear depois?** Se você já sincronizou com um nome e quiser trocar,
-> renomeie a pasta **e** o `TENANT_SLUG` juntos. Trocar só um deixa duas
-> barbearias disputando o mesmo número, e o comando recusa dizendo qual já está
+> renomeie a pasta **e** o `TENANT_SLUG` juntos. Trocar só um deixa dois
+> restaurantes disputando o mesmo número, e o comando recusa dizendo qual já está
 > com ele.
 
-Edite o arquivo com os dados reais: nome, serviços com preço e duração, equipe e
-horário de funcionamento. O [`README.md`](../README.md) do módulo explica os
-campos de agenda e atendimento; os campos visuais estão no
+Edite o arquivo com os dados reais: nome, cardápio, ambientes com a lotação de
+cada um, equipe e horário de funcionamento (almoço e jantar). O
+[`README.md`](../README.md) do módulo explica os campos das reservas e do
+atendimento; os campos visuais estão no
 [`site/README.md`](../../site/README.md).
 
 ```bash
@@ -295,13 +297,15 @@ npm run tenant:sync
 ```
 
 ```
-✔ barbearia-do-ze — Barbearia do Zé
+✔ cantina-bella-nonna — Cantina Bella Nonna
    número (phone_number_id): 123456789012345
    fuso: America/Sao_Paulo
 ```
 
-Se algum serviço tiver duração que o sistema não entendeu, ele avisa aqui e diz
-para você escrever `"durationMin": 45` no serviço.
+Campo com valor que o sistema não entendeu — uma lotação escrita como texto, um
+horário fora do formato `"HH:MM"`, uma chave de texto que não existe — aparece
+aqui como aviso, com o nome do campo. O valor inválido volta ao padrão; o resto
+do config entra normalmente.
 
 ### 5.5 Subir o servidor
 
@@ -318,7 +322,7 @@ Em outro terminal:
 
 ```bash
 curl localhost:3333/health
-# {"ok":true,"servico":"barbearia-whatsapp"}
+# {"ok":true,"servico":"restaurante-whatsapp"}
 ```
 
 > Esse `/health` consulta o banco de verdade. Se ele responder, servidor e
@@ -346,14 +350,14 @@ referência completa, em tabela.
 
 | Variável | Padrão | | O que faz |
 |---|---|---|---|
-| `DATABASE_URL` | `postgres://barbearia:barbearia@localhost:5432/barbearia` | 🔴 | Conexão. O padrão já bate com o `docker compose` do projeto |
+| `DATABASE_URL` | `postgres://restaurante:restaurante@localhost:5432/restaurante` | 🔴 | Conexão. O padrão já bate com o `docker compose` do projeto |
 | `DATABASE_SSL` | `false` | 🟡 | `true` na maioria dos bancos gerenciados (Neon, Supabase, Railway, RDS) |
-| `DATABASE_POOL_MAX` | `10` | ⚪ | Conexões simultâneas. Aguenta várias barbearias |
+| `DATABASE_POOL_MAX` | `10` | ⚪ | Conexões simultâneas. Aguenta vários restaurantes |
 | `DATABASE_URL_TEST` | vazia | ⚪ | Banco dos testes de integração. Vazia = esses testes são pulados |
 
 ### 6.3 Aplicativo da Meta
 
-Um aplicativo atende **todas** as suas barbearias. O que muda de uma para outra
+Um aplicativo atende **todos** os seus restaurantes. O que muda de um para outro
 é o número, que fica no banco.
 
 | Variável | Onde achar | | O que faz |
@@ -369,14 +373,14 @@ Um aplicativo atende **todas** as suas barbearias. O que muda de uma para outra
 
 | Variável | Como gerar | | O que faz |
 |---|---|---|---|
-| `APP_ENCRYPTION_KEY` | `openssl rand -base64 32` | 🔴 | Criptografa os tokens da Meta no banco. **Perdeu ou trocou = todas as barbearias precisam ser cadastradas de novo.** Guarde junto do backup |
+| `APP_ENCRYPTION_KEY` | `openssl rand -base64 32` | 🔴 | Criptografa os tokens da Meta no banco. **Perdeu ou trocou = todos os restaurantes precisam ser cadastrados de novo.** Guarde junto do backup |
 | `ADMIN_API_TOKEN` | `openssl rand -hex 32` | 🔴 | Senha das rotas `/admin/*`, enviada como `Authorization: Bearer ...` |
 
 ### 6.5 Padrões regionais
 
 | Variável | Padrão | | O que faz |
 |---|---|---|---|
-| `DEFAULT_TIMEZONE` | `America/Sao_Paulo` | 🟡 | Fuso da agenda e dos lembretes |
+| `DEFAULT_TIMEZONE` | `America/Sao_Paulo` | 🟡 | Fuso das reservas e dos lembretes |
 | `DEFAULT_LOCALE` | `pt_BR` | ⚪ | Idioma dos templates. **Precisa bater exatamente com o cadastrado na Meta**, senão dá erro 132001 |
 | `DEFAULT_COUNTRY_CODE` | `55` | ⚪ | DDI acrescentado a números escritos sem código do país |
 
@@ -392,19 +396,19 @@ normalmente mas nenhum lembrete sai.**
 | `WORKER_INTERVAL_MS` | `30000` | ⚪ | De quanto em quanto tempo procura mensagens vencidas |
 | `WORKER_BATCH_SIZE` | `20` | ⚪ | Quantas envia por rodada |
 | `OUTBOX_MAX_ATTEMPTS` | `5` | ⚪ | Tentativas antes de desistir. Erros definitivos não são retentados de qualquer forma |
-| `DAILY_JOBS_AT` | `09:00` | 🟡 | Hora das rotinas diárias (pós-atendimento, reativação, aniversário) |
+| `DAILY_JOBS_AT` | `09:00` | 🟡 | Hora das rotinas diárias (fechar as reservas que passaram, expirar pedidos sem resposta, pós-visita, reativação, aniversário) |
 
 ### 6.7 Liga e desliga das mensagens
 
-Trava **geral** do servidor. Cada barbearia ainda pode desligar a dela em
-`whatsapp.messages` no `barbearia.config.json`. **Uma mensagem só sai se estiver
+Trava **geral** do servidor. Cada restaurante ainda pode desligar a dele em
+`whatsapp.messages` no `restaurante.config.json`. **Uma mensagem só sai se estiver
 ligada nos dois lugares.**
 
 | Variável | Padrão | O que é |
 |---|---|---|
-| `FEATURE_LEMBRETE_24H` | `true` | Lembrete da véspera, com botões Confirmar/Cancelar. **Precisa de template aprovado** |
+| `FEATURE_LEMBRETE_24H` | `true` | Lembrete da véspera, com botões Confirmo/Cancelar. **Precisa de template aprovado** |
 | `FEATURE_LEMBRETE_2H` | `true` | Lembrete 2h antes. **Precisa de template aprovado** |
-| `FEATURE_POS_ATENDIMENTO` | `false` | Agradecimento + avaliação no dia seguinte |
+| `FEATURE_POS_ATENDIMENTO` | `false` | Pós-visita: agradecimento + avaliação no dia seguinte |
 | `FEATURE_REATIVACAO` | `false` | Convite para quem sumiu. **Marketing** — exige opt-in |
 | `FEATURE_ANIVERSARIO` | `false` | Parabéns no dia. **Marketing** |
 
@@ -428,13 +432,13 @@ Precisam bater **letra por letra** com o cadastrado no WhatsApp Manager.
 | Variável | Padrão | | O que faz |
 |---|---|---|---|
 | `HANDOFF_MINUTES` | `30` | 🟡 | Quanto tempo o bot fica calado depois que o cliente pede um atendente |
-| `SESSION_TIMEOUT_MIN` | `20` | 🟡 | Cliente que some no meio do agendamento e volta depois disso recomeça do menu |
+| `SESSION_TIMEOUT_MIN` | `20` | 🟡 | Cliente que some no meio da reserva e volta depois disso recomeça do menu |
 | `QUIET_HOURS_START` | `21:00` | 🟡 | Início do silêncio noturno |
 | `QUIET_HOURS_END` | `08:00` | 🟡 | Fim. Nada programado sai nessa faixa |
-| `RATE_LIMIT_PER_CONTACT_PER_MIN` | `40` | ⚪ | Freio contra enxurrada. Um agendamento leva ~8 toques; não desça muito |
+| `RATE_LIMIT_PER_CONTACT_PER_MIN` | `40` | ⚪ | Freio contra enxurrada. Uma reserva leva ~7 toques; não desça muito |
 | `MESSAGE_RETENTION_DAYS` | `180` | 🟡 | Dias até apagar o conteúdo das mensagens (LGPD). `0` = nunca apagar |
 
-### 6.10 A primeira barbearia
+### 6.10 O primeiro restaurante
 
 | Variável | | O que faz |
 |---|---|---|
@@ -442,10 +446,10 @@ Precisam bater **letra por letra** com o cadastrado no WhatsApp Manager.
 | `TENANT_PHONE_NUMBER_ID` | 🔴 | O ID longo da seção 4.1 — não é o telefone |
 | `TENANT_WABA_ID` | 🟡 | Usado para conferir os templates |
 | `TENANT_ACCESS_TOKEN` | 🔴 | Token da Meta. Vai criptografado para o banco |
-| `TENANT_OWNER_PHONE` | 🟡 | Seu WhatsApp. Recebe os avisos e o menu de administração. Qualquer formato serve |
+| `TENANT_OWNER_PHONE` | 🟡 | Seu WhatsApp. Recebe os avisos, os pedidos de grupo grande e o painel do dono. Qualquer formato serve |
 | `TENANT_TIMEZONE` | ⚪ | Vazia = usa o `DEFAULT_TIMEZONE` |
 
-Da segunda barbearia em diante, use `npm run tenant:add` — o `.env` continua
+Do segundo restaurante em diante, use `npm run tenant:add` — o `.env` continua
 enxuto e as credenciais vão criptografadas para o banco.
 
 ---
@@ -522,21 +526,28 @@ de teste da Meta.
 O menu deve chegar em segundos:
 
 ```
-Olá! Aqui é a Barbearia do Zé 💈
+Olá! Aqui é a Cantina Bella Nonna 🍝
 Como posso ajudar?
 
 [ Ver opções ]
 ```
 
-Toque em **Ver opções → Agendar horário** e vá até o fim: escolha serviço,
-barbeiro, dia e horário, e confirme. Você deve receber a confirmação, e o
-seu número (o `TENANT_OWNER_PHONE`) recebe o aviso de novo agendamento.
+Toque em **Ver opções → Reservar mesa** e vá até o fim: escolha quantas
+pessoas, o ambiente, o dia e o horário, e confirme. Você deve receber a
+confirmação.
 
-Confira que o horário entrou de verdade:
+> Com o seu número como `TENANT_OWNER_PHONE`, quem escreve é o **dono**, e o que
+> chega é o painel do dono, não o menu do cliente. Para testar como cliente,
+> use outro número da lista de teste — ou o `npm run bot:sim -- --from=...`,
+> que não passa pela Meta. E para ver o pedido de aprovação chegar ao dono,
+> reserve para um grupo maior que `booking.approvalAbovePartySize` (8 no
+> exemplo).
+
+Confira que a reserva entrou de verdade:
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
-  localhost:3333/admin/barbearia-do-ze/agenda
+  localhost:3333/admin/cantina-bella-nonna/reservas
 ```
 
 ### Não chegou nada?
@@ -547,7 +558,7 @@ Olhe o log do servidor **nesta ordem**:
 |---|---|---|
 | **nada, silêncio total** | A Meta não está chamando você | O campo `messages` não foi assinado (7.3). Ou o túnel caiu / mudou de URL |
 | `webhook com assinatura inválida foi recusado` | A chamada chegou, mas não bate | `META_APP_SECRET` errado no `.env` |
-| `mensagem para um número que não é de nenhuma barbearia cadastrada` | Chegou e foi validada, mas o número não é conhecido | `TENANT_PHONE_NUMBER_ID` errado, ou faltou rodar `npm run tenant:sync` |
+| `mensagem para um número que não é de nenhum restaurante cadastrado` | Chegou e foi validada, mas o número não é conhecido | `TENANT_PHONE_NUMBER_ID` errado, ou faltou rodar `npm run tenant:sync` |
 | `falha ao responder o cliente` com **190** | Token expirado | O token da seção 4.1 dura 24h. Pegue um novo |
 | `falha ao responder o cliente` com **131047** | Passou de 24h desde a sua última mensagem | Mande "oi" de novo do celular |
 | `falha ao responder o cliente` com **131030** | Número não está na lista de teste | Cadastre em 4.2 |
@@ -581,7 +592,7 @@ npm run templates:check
 ```
 
 ```
-━━ Barbearia do Zé (barbearia-do-ze)
+━━ Cantina Bella Nonna (cantina-bella-nonna)
    ✔ lembrete_24h            APPROVED     lembrete de 24h (ligado)
    ⏳ lembrete_2h             PENDING      lembrete de 2h (ligado)
    · pos_atendimento         NÃO EXISTE   pós-atendimento (desligado)
@@ -592,7 +603,7 @@ mensagens vão falhar.
 
 ### 9.3 Adiantar o relógio
 
-Marque um horário pelo bot para **daqui a três dias**. O lembrete de 24h fica na
+Reserve uma mesa pelo bot para **daqui a três dias**. O lembrete de 24h fica na
 fila esperando a véspera. Em vez de esperar:
 
 ```bash
@@ -606,7 +617,7 @@ Para ver o que está na fila:
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
-  localhost:3333/admin/barbearia-do-ze/fila
+  localhost:3333/admin/cantina-bella-nonna/fila
 # {"fila":{"pending":2,"sent":1}}
 ```
 
@@ -645,8 +656,8 @@ Confirme com o número. Só depois disso a Meta aceita registrá-lo na API.
 
 Em **WhatsApp → Configuração da API → Adicionar número de telefone**:
 
-1. Nome de exibição: **o nome real da barbearia**. Nome genérico
-   ("Agendamentos", "Atendimento") costuma ser recusado.
+1. Nome de exibição: **o nome real do restaurante**. Nome genérico
+   ("Reservas", "Atendimento") costuma ser recusado.
 2. Categoria e descrição curta.
 3. Confirme o número por **SMS** ou **ligação**.
 
@@ -662,7 +673,7 @@ TENANT_PHONE_NUMBER_ID=<o novo>
 npm run tenant:sync
 ```
 
-Mande "oi" do celular. Agora é o número da barbearia respondendo.
+Mande "oi" do celular. Agora é o número do restaurante respondendo.
 
 ---
 
@@ -676,7 +687,7 @@ da categoria e do país.
 | Tipo | Quando acontece | Custo |
 |---|---|---|
 | **Serviço** (texto livre dentro da janela de 24h) | Todo o menu do bot: cliente manda algo, bot responde | **Grátis** |
-| **Utilidade dentro da janela** | Confirmação logo após o cliente marcar | **Grátis** |
+| **Utilidade dentro da janela** | Confirmação logo após o cliente reservar | **Grátis** |
 | **Utilidade fora da janela** | Lembretes de 24h e 2h | Centavos por mensagem |
 | **Marketing** | Reativação, aniversário | Mais caro |
 
@@ -702,11 +713,11 @@ Duas consequências práticas no desenho deste bot, que continuam valendo:
 
 **Exceção que vale conhecer:** conversas que começam por um **anúncio
 clique-para-WhatsApp** ou pelo botão de uma página no Facebook mantêm uma janela
-gratuita de 72 horas. Se a barbearia anuncia, vale usar esse caminho.
+gratuita de 72 horas. Se o restaurante anuncia, vale usar esse caminho.
 
 ### Estimativa
 
-Uma barbearia com **200 agendamentos por mês**, cada cliente trocando ~10
+Um restaurante com **200 reservas por mês**, cada cliente trocando ~10
 mensagens com o bot, com confirmação e dois lembretes:
 
 - Hoje: só os 400 lembretes são cobrados.
@@ -724,8 +735,8 @@ Manager → Insights**, que mostra o preço em reais e o seu gasto real.
 já envia para **250 destinatários únicos a cada 24 horas**.
 
 Importante entender o que conta para esse limite: são as conversas que **você
-inicia** (os lembretes). **Responder cliente não conta** — isso é ilimitado. Uma
-barbearia dificilmente encosta em 250 lembretes por dia.
+inicia** (os lembretes). **Responder cliente não conta** — isso é ilimitado. Um
+restaurante dificilmente encosta em 250 lembretes por dia.
 
 | Nível | Destinatários novos / 24h | Precisa de |
 |---|---|---|
@@ -755,7 +766,7 @@ junto com o seu terminal.
 O token de 24h não serve. Crie um de usuário do sistema:
 
 1. **Meta Business → Configurações do negócio → Usuários → Usuários do sistema**
-2. **Adicionar** → nome (ex.: `bot-barbearia`) → função **Administrador**
+2. **Adicionar** → nome (ex.: `bot-restaurante`) → função **Administrador**
 3. **Adicionar ativos** → seu aplicativo → **Controle total**
 4. **Gerar novo token** → escolha o aplicativo → marque:
    - `whatsapp_business_messaging`
@@ -763,7 +774,7 @@ O token de 24h não serve. Crie um de usuário do sistema:
 5. **Sem expiração** → copie
 
 ```bash
-npm run tenant:add -- --slug=barbearia-do-ze \
+npm run tenant:add -- --slug=cantina-bella-nonna \
   --phone-number-id=... --waba-id=... --token=EAAG... --owner="(11) 91234-5678"
 ```
 
@@ -774,7 +785,7 @@ npm run tenant:add -- --slug=barbearia-do-ze \
 | **HTTPS estável** | Render e Railway dão domínio com certificado. Numa VPS, Nginx + Let's Encrypt |
 | `NODE_ENV=production` | Ativa as checagens de configuração insegura |
 | `PUBLIC_URL` definitivo | E atualizar o webhook no painel da Meta |
-| **Backup do banco** | É onde mora a agenda |
+| **Backup do banco** | É onde moram as reservas |
 
 ```bash
 pg_dump "$DATABASE_URL" | gzip > backup-$(date +%F).sql.gz
@@ -786,14 +797,15 @@ pg_dump "$DATABASE_URL" | gzip > backup-$(date +%F).sql.gz
 ### 13.3 Manutenção do dia a dia
 
 ```bash
-npm run tenant:sync       # depois de mudar preço, horário ou equipe
+npm run tenant:sync       # depois de mudar cardápio, ambiente, horário ou equipe
 npm run tenant:list       # o que está cadastrado
 npm run templates:check   # situação dos templates
 ```
 
-E lembre: o dono não precisa de painel. Ele manda qualquer coisa para o número
-da barbearia e recebe o menu de administração — agenda do dia, bloquear horário,
-pausar o bot.
+E lembre: o dono não precisa de sistema nenhum. Ele manda qualquer coisa para o
+número do restaurante e recebe o painel do dono — pedidos de grupo grande,
+reservas do dia, relatório, fechar agenda, pausar o bot. A recepção, com o
+telefone em `team[].phone`, recebe o painel dela para marcar quem chegou.
 
 ---
 
@@ -817,16 +829,17 @@ pausar o bot.
 |---|---|
 | Bot mudo, log sem nada | Campo `messages` não assinado (7.3), ou túnel com URL nova |
 | Bot responde, lembrete não chega | Worker desligado (`WORKER_ENABLED`), ou template não aprovado, ou mensagem desligada nos dois lugares (6.7) |
-| `tenant:sync` diz `⚠ não cadastrada` | `TENANT_SLUG` diferente do nome da pasta em `tenants/` |
-| `tenant:sync` diz que o número já está em outra barbearia | Você renomeou o slug sem renomear a pasta (ou sobrou a `barbearia-do-ze` que vem no projeto). A mensagem diz qual barbearia está com o número |
-| Menu com serviço faltando | O serviço não tem `name` no config, ou a lista passou de 9 itens (limite da Meta) |
+| `tenant:sync` diz `⚠ não cadastrado` | `TENANT_SLUG` diferente do nome da pasta em `tenants/` |
+| `tenant:sync` diz que o número já está em outro restaurante | Você renomeou o slug sem renomear a pasta (ou sobrou a `cantina-bella-nonna` que vem no projeto). A mensagem diz qual restaurante está com o número |
+| Ambiente faltando na reserva | Está com `"bookable": false`, sem `name`, ou o grupo é maior que o `capacity` dele — o bot só lista os ambientes em que o grupo cabe |
+| "Sem horário" com o restaurante vazio | `lastSeatingMin` ou `durationMin` maiores que a faixa do dia, `leadTimeMin` alto demais, ou um "Fechar agenda" esquecido (`time_blocks`) |
 | Horários estranhos | `DEFAULT_TIMEZONE` ou `TENANT_TIMEZONE` errado |
 
 ### Comandos de socorro
 
 ```bash
 curl localhost:3333/health                       # servidor e banco estão de pé?
-npm run tenant:list                              # a barbearia está cadastrada?
+npm run tenant:list                              # o restaurante está cadastrado?
 npm run templates:check                          # os templates estão aprovados?
 LOG_LEVEL=debug npm run dev               # ver o payload de cada mensagem
 ```

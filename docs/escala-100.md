@@ -2,14 +2,14 @@
 
 O que aguenta sem mudar nada, o que trava, e quando mexer.
 
-**A regra:** não implemente nada disto com 5 barbearias. Cada item aqui existe
+**A regra:** não implemente nada disto com 5 restaurantes. Cada item aqui existe
 para resolver uma dor específica — sem a dor, é complexidade de graça. A tabela
 diz quando cada uma aparece.
 
 | | 5 | 20 | 100 |
 |---|---|---|---|
-| Site: projeto por barbearia | ✅ tranquilo | ⚠️ o painel incomoda | ❌ insustentável |
-| Site: buildar todas a cada push | ✅ < 1 min | ⚠️ ~4 min | ❌ builds incrementais |
+| Site: projeto por restaurante | ✅ tranquilo | ⚠️ o painel incomoda | ❌ insustentável |
+| Site: buildar todos a cada push | ✅ < 1 min | ⚠️ ~4 min | ❌ builds incrementais |
 | Domínios: apontar no painel | ✅ | ⚠️ | ❌ Cloudflare for SaaS, por API |
 | WhatsApp: 1 WABA | ✅ | ⚠️ o teto chega | ❌ várias WABAs |
 | WhatsApp: worker no processo | ✅ | ✅ | ⚠️ separar |
@@ -24,7 +24,7 @@ diz quando cada uma aparece.
 ### O problema
 
 Cem projetos no painel de hospedagem, cem domínios apontados a mão, cem
-certificados para renovar. E o CI buildando as cem a cada vírgula trocada.
+certificados para renovar. E o CI buildando os cem a cada vírgula trocada.
 
 ### A solução: um destino, roteado por `Host`
 
@@ -33,12 +33,12 @@ um Worker na frente decide qual servir:
 
 ```
 dist/
-  barbearia-do-ze/index.html
-  studio-max/index.html
+  cantina-bella-nonna/index.html
+  sushi-kaze/index.html
   ...  (100 pastas)
 
-barbeariadoze.com.br    ──▶  Worker  ──▶  dist/barbearia-do-ze/
-studiomaxbarber.com.br  ──▶  Worker  ──▶  dist/studio-max/
+cantinabellanonna.com.br  ──▶  Worker  ──▶  dist/cantina-bella-nonna/
+sushikaze.com.br          ──▶  Worker  ──▶  dist/sushi-kaze/
 ```
 
 **`deploy/hosts.json`** — gerado do `tenants.json`, domínio → slug:
@@ -58,7 +58,7 @@ import mapa from '../../deploy/hosts.json'
 
 /**
  * Um Worker na frente de todos os sites: olha o domínio pedido e serve a pasta
- * daquela barbearia. Cem sites, um deploy.
+ * daquele restaurante. Cem sites, um deploy.
  */
 export default {
   async fetch(request: Request, env: { ASSETS: Fetcher }): Promise<Response> {
@@ -68,7 +68,7 @@ export default {
 
     if (!slug) {
       // Domínio que aponta para cá mas não está no manifesto. Acontece quando o
-      // cliente configurou o DNS antes de a barbearia entrar no tenants.json.
+      // cliente configurou o DNS antes de o restaurante entrar no tenants.json.
       return new Response('Domínio não configurado.', { status: 404 })
     }
 
@@ -88,7 +88,7 @@ export default {
 
 ```jsonc
 {
-  "name": "barbearia-sites",
+  "name": "restaurante-sites",
   "main": "src/index.ts",
   "compatibility_date": "2025-01-01",
   "assets": { "directory": "../site/dist", "binding": "ASSETS" }
@@ -109,7 +109,7 @@ curl -X POST \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-        "hostname": "studiomaxbarber.com.br",
+        "hostname": "sushikaze.com.br",
         "ssl": { "method": "http", "type": "dv" }
       }'
 ```
@@ -121,7 +121,7 @@ E o cliente aponta o DNS dele uma vez para o seu *fallback origin*:
 | `CNAME` | `@` e `www` | `sites.suaempresa.com.br` |
 
 Do lado dele isso é um registro só, para sempre. Do seu, uma chamada de API por
-barbearia — sem clique de painel, sem renovação manual.
+restaurante — sem clique de painel, sem renovação manual.
 
 > Cloudflare for SaaS é pago por hostname ativo, e é barato perto do custo de
 > administrar 100 domínios a mão. Vercel e Netlify têm o equivalente
@@ -129,7 +129,7 @@ barbearia — sem clique de painel, sem renovação manual.
 
 ### Builds incrementais
 
-Com 100 barbearias, buildar todas a cada push é desperdício. Builde **só o que
+Com 100 restaurantes, buildar todos a cada push é desperdício. Builde **só o que
 mudou**:
 
 ```yaml
@@ -154,8 +154,8 @@ mudou**:
     echo "tenants=$LISTA" >> "$GITHUB_OUTPUT"
 ```
 
-Mexeu no preço de uma barbearia: um build, alguns segundos. Mexeu num componente
-do site: as cem, uma vez.
+Mexeu no preço de um prato: um build, alguns segundos. Mexeu num componente
+do site: os cem, uma vez.
 
 ---
 
@@ -169,7 +169,7 @@ de chegada:
 Uma WABA segura um número limitado de telefones (por volta de 25; confirme no seu
 painel). Com 100 você **precisa** de várias WABAs.
 
-O código já suporta: `wabaId` é coluna por barbearia. O que passa a doer é
+O código já suporta: `wabaId` é coluna por restaurante. O que passa a doer é
 **template**, que é por WABA — os mesmos dois modelos, aprovados em cada uma.
 Automatize:
 
@@ -186,7 +186,7 @@ depois, para confirmar a aprovação.
 
 ### 2. O worker
 
-Até ~20 barbearias, `WORKER_IN_PROCESS=true` dá conta: um container só, mais
+Até ~20 restaurantes, `WORKER_IN_PROCESS=true` dá conta: um container só, mais
 barato. Acima disso, a varredura da `outbox` começa a competir com o webhook
 pela mesma CPU — e o webhook é o que o cliente sente.
 
@@ -195,13 +195,13 @@ imagem e outro comando:
 
 ```yaml
   - type: worker              # sem porta, sem health check: não atende HTTP
-    name: barbearia-worker
+    name: restaurante-worker
     runtime: docker
     region: virginia
     plan: starter
     dockerfilePath: ./whatsapp/Dockerfile
     dockerContext: .
-    dockerCommand: npm run worker -w @barbearia/whatsapp
+    dockerCommand: npm run worker -w @restaurante/whatsapp
     envVars:
       - key: WORKER_ENABLED
         value: true
@@ -215,7 +215,7 @@ Mais de um processo de worker **funciona**: o `claimDue` usa
 então dois nunca pegam a mesma linha, e o `releaseStale()` da subida requeue o
 que ficou preso num processo que morreu. É a mesma propriedade que faz o deploy
 zero-downtime da Render ser seguro, com as duas versões vivas por alguns
-segundos. Ainda assim, comece com **um**: o gargalo até 100 barbearias é a Meta,
+segundos. Ainda assim, comece com **um**: o gargalo até 100 restaurantes é a Meta,
 não a fila.
 
 A API, essa sim, escala para várias réplicas sem cerimônia: ela é sem estado, e
@@ -225,29 +225,29 @@ o estado todo mora no banco.
 
 ```
 DATABASE_POOL_MAX=20        # por réplica da API — some tudo e compare com o teto do banco
-MESSAGE_RETENTION_DAYS=90   # 100 barbearias geram muito texto de mensagem
+MESSAGE_RETENTION_DAYS=90   # 100 restaurantes geram muito texto de mensagem
 ```
 
 Some `DATABASE_POOL_MAX × réplicas + 1 (worker)` e confira contra o limite de
 conexões do seu banco — e mantenha o banco na mesma região da Render, senão cada
 consulta a mais custa uma travessia. Neon e Supabase no plano gratuito param em 20 no total —
-estourar isso derruba **todas** as barbearias de uma vez, e o sintoma é um
+estourar isso derruba **todos** os restaurantes de uma vez, e o sintoma é um
 `/health` intermitente que confunde muito.
 
 O que vale vigiar, nesta ordem: linhas na `outbox` esperando envio, tempo da
-consulta de horários livres, e tamanho da tabela de mensagens.
+consulta de horários livres (a soma da lotação por ambiente), e tamanho da tabela de mensagens.
 
 ### 4. Os limites da Meta
 
 | Limite | O que é | Quando aperta |
 |---|---|---|
-| Qualidade do número | cai com denúncia e bloqueio | por número — uma barbearia ruim não contamina as outras |
+| Qualidade do número | cai com denúncia e bloqueio | por número — um restaurante ruim não contamina os outros |
 | Limite diário de conversas | começa baixo e sobe com uso saudável | número novo, nas primeiras semanas |
 | Taxa de envio | mensagens por segundo | só em disparo em massa; os lembretes deste projeto são espalhados no dia |
 | Verificação do negócio | Meta Business Verification | obrigatória para sair do modo limitado — **comece cedo, leva dias** |
 
 O `WORKER_BATCH_SIZE` e o `WORKER_INTERVAL_MS` controlam o ritmo de saída. Com
-100 barbearias, `20` mensagens a cada `30s` (o padrão) dá 2400 por hora — folgado
+100 restaurantes, `20` mensagens a cada `30s` (o padrão) dá 2400 por hora — folgado
 para lembretes, que já saem espalhados ao longo do dia.
 
 ### 5. Onboarding
@@ -274,11 +274,11 @@ Vale dizer, porque é o que dá confiança para começar simples:
 
 - **O roteamento do WhatsApp.** `phone_number_id` → tenant é uma consulta
   indexada com cache. Cem números não pesam mais que cinco.
-- **O schema do config.** O mesmo `barbearia.config.json`, o mesmo
+- **O schema do config.** O mesmo `restaurante.config.json`, o mesmo
   `normalizeConfig`.
 - **O build do site.** `TENANT=<slug> npm run build` é idêntico; o que muda é
   quantas vezes ele roda e para onde o resultado vai.
-- **O `.env` do servidor.** Continua um só. Nada por barbearia entra nele.
+- **O `.env` do servidor.** Continua um só. Nada por restaurante entra nele.
 - **A separação dos módulos.** Site e WhatsApp continuam subindo sozinhos, e
   cada um escala pelo seu lado.
 

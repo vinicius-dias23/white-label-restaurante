@@ -1,7 +1,7 @@
 /**
- * Edição cirúrgica do `barbearia.config.json`.
+ * Edição cirúrgica do `restaurante.config.json`.
  *
- * Os configs das barbearias são escritos à mão, com linhas em branco separando
+ * Os configs dos restaurantes são escritos à mão, com linhas em branco separando
  * as seções, e são revisados em pull request. Regravar o arquivo com
  * `JSON.stringify` funcionaria — e transformaria "mudei uma frase" num diff de
  * cem linhas. Então trocamos só o bloco que interessa, no texto mesmo.
@@ -81,7 +81,7 @@ function serializar(valor: unknown, recuo: string): string {
 /**
  * Grava `valor` na chave `caminho` preservando o resto do texto.
  *
- * O caminho tem uma ou duas partes: `['services']` mexe num campo de primeiro
+ * O caminho tem uma ou duas partes: `['areas']` mexe num campo de primeiro
  * nível, `['whatsapp', 'textos']` num aninhado. `valor` nulo remove a chave.
  *
  * Devolve `null` quando não dá para fazer a troca com segurança — arquivo

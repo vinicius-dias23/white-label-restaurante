@@ -1,0 +1,13 @@
+{
+  "brand": {
+    "name": "Cantina Bella Nonna",
+    "tagline": "Cozinha italiana de família desde 1987"
+  },
+  "contact": {
+    "whatsapp": "(11) 91234-5678",
+    "address": "Rua 13 de Maio, 480 — Bela Vista, São Paulo - SP",
+    "social": {
+      "instagram": "@cantinabellanonna"
+    }
+  }
+}

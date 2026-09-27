@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { DateTime } from 'luxon'
-import { agendaBetween, createTimeBlock } from './db/repositories/appointments.js'
+import { agendaBetween, createTimeBlock } from './db/repositories/reservations.js'
 import { setBirthday, setMarketingOptIn, setOptedOut } from './db/repositories/contacts.js'
 import { outboxStats } from './db/repositories/outbox.js'
 import { findTenantBySlug, listTenants } from './db/repositories/tenants.js'
@@ -10,7 +10,7 @@ import { log } from './lib/logger.js'
 /**
  * Rotas administrativas.
  *
- * O dia a dia da barbearia acontece no menu do WhatsApp do dono — isto aqui é o
+ * O dia a dia do restaurante acontece no menu do WhatsApp do dono — isto aqui é o
  * que sobra: consultar de fora, corrigir um dado, ligar um painel no futuro.
  *
  * Protegidas por um token único (`ADMIN_API_TOKEN`). Não é sistema de login com
@@ -44,48 +44,49 @@ export async function registerAdmin(app: FastifyInstance): Promise<void> {
       timezone: tenant.timezone,
       ativa: tenant.active,
       botPausadoAte: tenant.botPausedUntil,
-      servicos: tenant.config.services.length,
+      ambientes: tenant.config.areas.length,
+      pratosEmDestaque: tenant.config.menu.items.length,
       mensagens: tenant.config.whatsapp.messages,
     }))
   })
 
-  /** Agenda de um dia. `?dia=2026-08-22`, ou hoje. */
-  app.get('/admin/:slug/agenda', async (request, reply) => {
+  /** Reservas de um dia. `?dia=2026-08-22`, ou hoje. */
+  app.get('/admin/:slug/reservas', async (request, reply) => {
     const { slug } = request.params as { slug: string }
     const { dia } = request.query as { dia?: string }
 
     const tenant = await findTenantBySlug(slug)
-    if (!tenant) return reply.code(404).send({ error: 'barbearia não encontrada' })
+    if (!tenant) return reply.code(404).send({ error: 'restaurante não encontrado' })
 
     const day = dia
       ? DateTime.fromISO(dia, { zone: tenant.timezone })
       : DateTime.now().setZone(tenant.timezone)
     if (!day.isValid) return reply.code(400).send({ error: 'dia inválido, use 2026-08-22' })
 
-    const appointments = await agendaBetween(
+    const reservations = await agendaBetween(
       tenant.id,
       day.startOf('day').toJSDate(),
       day.startOf('day').plus({ days: 1 }).toJSDate(),
     )
 
-    return appointments.map((appointment) => ({
-      id: appointment.id,
-      inicio: appointment.startsAt,
-      fim: appointment.endsAt,
-      servico: appointment.serviceName,
-      barbeiro: appointment.barberName,
-      cliente: appointment.contactName || appointment.contactWaId,
-      status: appointment.status,
+    return reservations.map((reservation) => ({
+      id: reservation.id,
+      inicio: reservation.startsAt,
+      fim: reservation.endsAt,
+      pessoas: reservation.partySize,
+      ambiente: reservation.areaName,
+      cliente: reservation.contactName || reservation.contactWaId,
+      status: reservation.status,
     }))
   })
 
-  /** Bloqueia um período (folga, feriado, reforma). */
+  /** Fecha um período para reservas (feriado, evento fechado, reforma). */
   app.post('/admin/:slug/bloqueios', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    const body = request.body as { inicio?: string; fim?: string; motivo?: string; barbeiroId?: string }
+    const body = request.body as { inicio?: string; fim?: string; motivo?: string; ambienteId?: string }
 
     const tenant = await findTenantBySlug(slug)
-    if (!tenant) return reply.code(404).send({ error: 'barbearia não encontrada' })
+    if (!tenant) return reply.code(404).send({ error: 'restaurante não encontrado' })
 
     const inicio = body.inicio ? new Date(body.inicio) : null
     const fim = body.fim ? new Date(body.fim) : null
@@ -93,7 +94,7 @@ export async function registerAdmin(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'informe inicio e fim válidos, em ISO 8601' })
     }
 
-    await createTimeBlock(tenant.id, body.barbeiroId ?? null, inicio, fim, body.motivo ?? 'bloqueio manual')
+    await createTimeBlock(tenant.id, body.ambienteId ?? null, inicio, fim, body.motivo ?? 'bloqueio manual')
     return { ok: true }
   })
 
@@ -122,7 +123,7 @@ export async function registerAdmin(app: FastifyInstance): Promise<void> {
   app.get('/admin/:slug/fila', async (request, reply) => {
     const { slug } = request.params as { slug: string }
     const tenant = await findTenantBySlug(slug)
-    if (!tenant) return reply.code(404).send({ error: 'barbearia não encontrada' })
+    if (!tenant) return reply.code(404).send({ error: 'restaurante não encontrado' })
 
     return { fila: await outboxStats(tenant.id) }
   })

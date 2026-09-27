@@ -2,7 +2,7 @@
  * Base comum dos dois módulos.
  *
  * Aqui mora só o que o site e a automação do WhatsApp precisam ler do mesmo
- * jeito: o schema do `barbearia.config.json` (com validação e padrões) e os
+ * jeito: o schema do `restaurante.config.json` (com validação e padrões) e os
  * utilitários que derivam informação dele — cores, horários e links.
  *
  * Nada daqui conhece React, Fastify ou banco de dados: se um símbolo só serve
